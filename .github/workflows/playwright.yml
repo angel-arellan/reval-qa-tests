@@ -23,11 +23,11 @@ jobs:
 
     - name: Run Staging Tests
       continue-on-error: true
-      run: npx playwright test tests/reval-smoke-regression.spec.js
+      run: npx playwright test tests/reval-smoke-regression.spec.js --reporter=html
 
     - name: Run Production Tests
       continue-on-error: true
-      run: npx playwright test tests/reval-prod-regression.spec.js
+      run: npx playwright test tests/reval-prod-regression.spec.js --reporter=html
 
     - name: Upload Test Report Artifact
       if: always()
