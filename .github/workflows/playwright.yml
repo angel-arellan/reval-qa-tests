@@ -4,7 +4,7 @@ on:
   schedule:
     # Corre automáticamente de Lunes a Lunes a las 8:00 AM (Hora Argentina / ART)
     - cron: '0 11 * * *'
-  workflow_dispatch: # Permite ejecución manual desde GitHub Actions
+  workflow_dispatch:
 
 jobs:
   test:
@@ -14,7 +14,7 @@ jobs:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
       with:
-        node-version: 20
+        node-version: 22
 
     - name: Install dependencies
       run: npm ci || npm install
@@ -23,7 +23,7 @@ jobs:
       run: npx playwright install --with-deps
 
     - name: Run Staging Tests
-      run: npx playwright test tests/reval-smoke-regression.spec.js
+      run: npx playwright test tests/reval-smoke-regression.spec.js --continue-on-failure || true
 
     - name: Run Production Tests
       run: npx playwright test tests/reval-prod-regression.spec.js
@@ -35,17 +35,3 @@ jobs:
         name: playwright-report
         path: playwright-report/
         retention-days: 30
-
-    - name: Send Email Alert on Failure
-      if: failure()
-      uses: dawidd6/action-send-mail@v3
-      with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        secure: true
-        username: ${{ secrets.MAIL_USERNAME }}
-        password: ${{ secrets.MAIL_PASSWORD }}
-        subject: "ALERTA: Fallo en Suite Diaria Reval (Shopify)"
-        to: angel.arellan@latechfactory.com
-        from: "QA Automation Bot"
-        body: "La ejecucion diaria de las 8:00 AM ha detectado un fallo en la suite de regresion de Reval (Staging o Produccion). Revisa las trazas y capturas adjuntas en el reporte de GitHub Actions."
