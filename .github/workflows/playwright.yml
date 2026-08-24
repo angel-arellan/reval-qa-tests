@@ -45,7 +45,7 @@ jobs:
         secure: true
         username: ${{ secrets.MAIL_USERNAME }}
         password: ${{ secrets.MAIL_PASSWORD }}
-        subject: ⚠️ ALERTA: Fallo en Suite Diaria Reval (Shopify)
+        subject: "ALERTA: Fallo en Suite Diaria Reval (Shopify)"
         to: angel.arellan@latechfactory.com
-        from: QA Automation Bot
-        body: La ejecución diaria de las 8:00 AM ha detectado un fallo en la suite de regresión de Reval (Staging o Producción). Revisa las trazas y capturas adjuntas en el reporte de GitHub Actions.
+        from: "QA Automation Bot"
+        body: "La ejecucion diaria de las 8:00 AM ha detectado un fallo en la suite de regresion de Reval (Staging o Produccion). Revisa las trazas y capturas adjuntas en el reporte de GitHub Actions."
