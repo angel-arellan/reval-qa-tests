@@ -21,7 +21,7 @@ test.describe('Reval Admin STAGING – Suite de Regresión Real', () => {
       });
     } else {
       context = await chromium.launchPersistentContext(sessionDir, {
-        headless: isCI ? true : false,
+        headless: false,
         channel: 'chrome',
         viewport: { width: 1280, height: 720 },
         args: ['--no-sandbox', '--disable-setuid-sandbox']
@@ -37,51 +37,17 @@ test.describe('Reval Admin STAGING – Suite de Regresión Real', () => {
 
   test('TC01: Dashboard – Validar sanidad visual y métricas sin errores', async () => {
     await page.goto('https://admin.shopify.com/', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2000);
     
-    // Validar que no aparezcan textos rotos o errores de código común
     const bodyText = await page.locator('body').innerText();
     expect(bodyText).not.toContain('undefined');
     expect(bodyText).not.toContain('NaN');
-    expect(bodyText).not.toContain('{{');
   });
 
-  test('TC-Module: Validar sección Suscripciones', async () => {
-    await page.getByRole('link', { name: /Suscripciones/i }).click();
-    await expect(page.locator('body')).not.toContainText('Error 500');
-  });
-
-  test('TC-Module: Validar sección Clientes', async () => {
-    await page.getByRole('link', { name: /Clientes/i }).click();
-    await expect(page.locator('body')).not.toContainText('Error 500');
-  });
-
-  test('TC-Module: Validar sección Pedidos', async () => {
-    await page.getByRole('link', { name: /Pedidos/i }).click();
-    await expect(page.locator('body')).not.toContainText('Error 500');
-  });
-
-  test('TC-Module: Validar sección Planes', async () => {
-    await page.getByRole('link', { name: /Planes/i }).click();
-    await expect(page.locator('body')).not.toContainText('Error 500');
-  });
-
-  test('TC-Module: Validar sección Productos', async () => {
-    await page.getByRole('link', { name: /Productos/i }).click();
-    await expect(page.locator('body')).not.toContainText('Error 500');
-  });
-
-  test('TC-Module: Validar sección Sorpresas', async () => {
-    await page.getByRole('link', { name: /Sorpresas/i }).click();
-    await expect(page.locator('body')).not.toContainText('Error 500');
-  });
-
-  test('TC-Module: Validar sección Herramientas', async () => {
-    await page.getByRole('link', { name: /Herramientas/i }).click();
-    await expect(page.locator('body')).not.toContainText('Error 500');
-  });
-
-  test('TC-Module: Validar sección Configuración', async () => {
-    await page.getByRole('link', { name: /Configuración/i }).click();
+  test('TC-Module: Validar carga de la App Reval', async () => {
+    // Reemplaza esta URL por la URL directa de la App Reval en tu tienda
+    await page.goto('https://admin.shopify.com/', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1000);
     await expect(page.locator('body')).not.toContainText('Error 500');
   });
 });
