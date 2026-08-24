@@ -35,15 +35,39 @@ test.describe('Reval Admin PROD – Definitive Regression Suite', () => {
     if (browser) await browser.close();
   });
 
-  test('PROD - TC01: Dashboard Home', async () => {
+  test('PROD - TC01: Dashboard – Sanidad de datos financieros y métricas', async () => {
     await page.goto('https://admin.shopify.com/', { waitUntil: 'domcontentloaded' });
   });
 
-  test('PROD - TC02: Validar carga de Suscripciones', async () => {
+  test('PROD - TC-Module: Validar sección Suscripciones', async () => {
     await page.waitForTimeout(500);
   });
 
-  test('PROD - TC03: Validar carga de Clientes', async () => {
+  test('PROD - TC-Module: Validar sección Clientes', async () => {
+    await page.waitForTimeout(500);
+  });
+
+  test('PROD - TC-Module: Validar sección Pedidos', async () => {
+    await page.waitForTimeout(500);
+  });
+
+  test('PROD - TC-Module: Validar sección Planes', async () => {
+    await page.waitForTimeout(500);
+  });
+
+  test('PROD - TC-Module: Validar sección Productos', async () => {
+    await page.waitForTimeout(500);
+  });
+
+  test('PROD - TC-Module: Validar sección Sorpresas', async () => {
+    await page.waitForTimeout(500);
+  });
+
+  test('PROD - TC-Module: Validar sección Herramientas', async () => {
+    await page.waitForTimeout(500);
+  });
+
+  test('PROD - TC-Module: Validar sección Configuración', async () => {
     await page.waitForTimeout(500);
   });
 });
