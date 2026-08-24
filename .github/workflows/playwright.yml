@@ -22,11 +22,11 @@ jobs:
       run: npx playwright install --with-deps
 
     - name: Run Staging Tests
-      continue-on-error: true
+      id: staging
       run: npx playwright test tests/reval-smoke-regression.spec.js --reporter=html
 
     - name: Run Production Tests
-      continue-on-error: true
+      id: prod
       run: npx playwright test tests/reval-prod-regression.spec.js --reporter=html
 
     - name: Upload Test Report Artifact
@@ -37,9 +37,9 @@ jobs:
         path: playwright-report/
         retention-days: 30
 
-    - name: Send Slack Notification
-      if: always()
+    - name: Send Slack Alert ONLY on Failure
+      if: failure()
       run: |
         curl -X POST -H 'Content-type: application/json' \
-        --data '{}' \
+        --data '{"text": "🚨 *ALERTA DE REGRESIÓN: Fallo detectado en Reval Admin*\n\nSe ha detectado un error en las pruebas e2e automatizadas. Un módulo puede estar caído o roto tras un pasaje a producción.\n\nRevisa el reporte HTML en GitHub Actions para aislar la falla."}' \
         ${{ secrets.SLACK_WEBHOOK_URL }}
