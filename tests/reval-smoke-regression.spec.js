@@ -11,21 +11,10 @@ test.describe('Reval Admin STAGING – Suite de Regresión Real', () => {
     const storageStatePath = path.resolve(process.cwd(), 'storageState.json');
 
     if (isCI && fs.existsSync(storageStatePath)) {
-      browser = await chromium.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-      });
-      context = await browser.newContext({
-        storageState: storageStatePath,
-        viewport: { width: 1280, height: 720 }
-      });
+      browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+      context = await browser.newContext({ storageState: storageStatePath, viewport: { width: 1280, height: 720 } });
     } else {
-      context = await chromium.launchPersistentContext(sessionDir, {
-        headless: false,
-        channel: 'chrome',
-        viewport: { width: 1280, height: 720 },
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-      });
+      context = await chromium.launchPersistentContext(sessionDir, { headless: isCI ? true : false, channel: 'chrome', viewport: { width: 1280, height: 720 }, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
     }
     page = await context.newPage();
   });
@@ -35,19 +24,24 @@ test.describe('Reval Admin STAGING – Suite de Regresión Real', () => {
     if (browser) await browser.close();
   });
 
-  test('TC01: Dashboard – Validar sanidad visual y métricas sin errores', async () => {
-    await page.goto('https://admin.shopify.com/', { waitUntil: 'domcontentloaded' });
+  async function validarModulo(url, nombreModulo) {
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(2000);
-    
     const bodyText = await page.locator('body').innerText();
-    expect(bodyText).not.toContain('undefined');
-    expect(bodyText).not.toContain('NaN');
-  });
+    
+    expect(bodyText, `Error 500 en ${nombreModulo}`).not.toContain('Error 500');
+    expect(bodyText, `Error 404 en ${nombreModulo}`).not.toContain('404 Not Found');
+    expect(bodyText, `Código roto en ${nombreModulo}`).not.toContain('undefined');
+    expect(bodyText, `Código roto en ${nombreModulo}`).not.toContain('NaN');
+  }
 
-  test('TC-Module: Validar carga de la App Reval', async () => {
-    // Reemplaza esta URL por la URL directa de la App Reval en tu tienda
-    await page.goto('https://admin.shopify.com/', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(1000);
-    await expect(page.locator('body')).not.toContainText('Error 500');
-  });
+  test('STG - TC01: Dashboard', async () => { await validarModulo('https://admin.shopify.com/store/mp-subscriptions/apps/latech-subscriptions-1/app', 'Dashboard'); });
+  test('STG - TC02: Suscripciones', async () => { await validarModulo('https://admin.shopify.com/store/mp-subscriptions/apps/latech-subscriptions-1/app/subscriptions', 'Suscripciones'); });
+  test('STG - TC03: Clientes', async () => { await validarModulo('https://admin.shopify.com/store/mp-subscriptions/apps/latech-subscriptions-1/app/customers', 'Clientes'); });
+  test('STG - TC04: Pedidos', async () => { await validarModulo('https://admin.shopify.com/store/mp-subscriptions/apps/latech-subscriptions-1/app/orders', 'Pedidos'); });
+  test('STG - TC05: Planes', async () => { await validarModulo('https://admin.shopify.com/store/mp-subscriptions/apps/latech-subscriptions-1/app/plans', 'Planes'); });
+  test('STG - TC06: Productos', async () => { await validarModulo('https://admin.shopify.com/store/mp-subscriptions/apps/latech-subscriptions-1/app/products', 'Productos'); });
+  test('STG - TC07: Sorpresas', async () => { await validarModulo('https://admin.shopify.com/store/mp-subscriptions/apps/latech-subscriptions-1/app/sorpresas', 'Sorpresas'); });
+  test('STG - TC08: Herramientas', async () => { await validarModulo('https://admin.shopify.com/store/mp-subscriptions/apps/latech-subscriptions-1/app/tools', 'Herramientas'); });
+  test('STG - TC09: Configuración', async () => { await validarModulo('https://admin.shopify.com/store/mp-subscriptions/apps/latech-subscriptions-1/app/settings', 'Configuración'); });
 });
