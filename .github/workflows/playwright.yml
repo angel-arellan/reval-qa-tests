@@ -2,7 +2,6 @@ name: Playwright Daily E2E Regression - Reval (Lunes a Lunes)
 
 on:
   schedule:
-    # Corre automáticamente de Lunes a Lunes a las 8:00 AM (Hora Argentina / ART)
     - cron: '0 11 * * *'
   workflow_dispatch:
 
