@@ -1,0 +1,47 @@
+name: Playwright Daily E2E Regression - Reval (Lunes a Lunes)
+
+on:
+  schedule:
+    # Corre automáticamente de Lunes a Lunes (todos los días) a las 8:00 AM (Hora Argentina / ART)
+    - cron: '0 11 * * *'
+  workflow_dispatch: # Permite la ejecución manual desde la pestaña Actions en GitHub
+
+jobs:
+  test:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 18
+
+    - name: Install dependencies
+      run: npm ci || npm install
+
+    - name: Install Playwright Browsers
+      run: npx playwright install --with-deps
+
+    - name: Run Staging Tests
+      run: npx playwright test tests/reval-smoke-regression.spec.js
+
+    - name: Run Production Tests
+      run: npx playwright test tests/reval-prod-regression.spec.js
+
+    - name: Upload Test Report Artifact
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: playwright-report
+        path: playwright-report/
+        retention-days: 30
+
+    - name: Notify Slack on Failure
+      if: failure()
+      uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_CHANNEL: qa-alerts
+        SLACK_COLOR: danger
+        SLACK_TITLE: '❌ FALLO EN REGRESIÓN DE REVAL'
+        SLACK_MESSAGE: 'La suite diaria de Playwright detectó un error en Staging o Producción. Revisa el reporte en GitHub Actions.'
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
