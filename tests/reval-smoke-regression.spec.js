@@ -2,7 +2,7 @@ const { test, expect, chromium } = require('@playwright/test');
 const path = require('path');
 const fs = require('fs');
 
-test.describe('Reval Admin STAGING – Definitive Regression Suite', () => {
+test.describe('Reval Admin STAGING – Suite de Regresión Real', () => {
   let browser, context, page;
 
   test.beforeAll(async () => {
@@ -35,39 +35,53 @@ test.describe('Reval Admin STAGING – Definitive Regression Suite', () => {
     if (browser) await browser.close();
   });
 
-  test('TC01: Dashboard – Sanidad de datos financieros y métricas', async () => {
+  test('TC01: Dashboard – Validar sanidad visual y métricas sin errores', async () => {
     await page.goto('https://admin.shopify.com/', { waitUntil: 'domcontentloaded' });
+    
+    // Validar que no aparezcan textos rotos o errores de código común
+    const bodyText = await page.locator('body').innerText();
+    expect(bodyText).not.toContain('undefined');
+    expect(bodyText).not.toContain('NaN');
+    expect(bodyText).not.toContain('{{');
   });
 
   test('TC-Module: Validar sección Suscripciones', async () => {
-    await page.waitForTimeout(500);
+    await page.getByRole('link', { name: /Suscripciones/i }).click();
+    await expect(page.locator('body')).not.toContainText('Error 500');
   });
 
   test('TC-Module: Validar sección Clientes', async () => {
-    await page.waitForTimeout(500);
+    await page.getByRole('link', { name: /Clientes/i }).click();
+    await expect(page.locator('body')).not.toContainText('Error 500');
   });
 
   test('TC-Module: Validar sección Pedidos', async () => {
-    await page.waitForTimeout(500);
+    await page.getByRole('link', { name: /Pedidos/i }).click();
+    await expect(page.locator('body')).not.toContainText('Error 500');
   });
 
   test('TC-Module: Validar sección Planes', async () => {
-    await page.waitForTimeout(500);
+    await page.getByRole('link', { name: /Planes/i }).click();
+    await expect(page.locator('body')).not.toContainText('Error 500');
   });
 
   test('TC-Module: Validar sección Productos', async () => {
-    await page.waitForTimeout(500);
+    await page.getByRole('link', { name: /Productos/i }).click();
+    await expect(page.locator('body')).not.toContainText('Error 500');
   });
 
   test('TC-Module: Validar sección Sorpresas', async () => {
-    await page.waitForTimeout(500);
+    await page.getByRole('link', { name: /Sorpresas/i }).click();
+    await expect(page.locator('body')).not.toContainText('Error 500');
   });
 
   test('TC-Module: Validar sección Herramientas', async () => {
-    await page.waitForTimeout(500);
+    await page.getByRole('link', { name: /Herramientas/i }).click();
+    await expect(page.locator('body')).not.toContainText('Error 500');
   });
 
   test('TC-Module: Validar sección Configuración', async () => {
-    await page.waitForTimeout(500);
+    await page.getByRole('link', { name: /Configuración/i }).click();
+    await expect(page.locator('body')).not.toContainText('Error 500');
   });
 });
