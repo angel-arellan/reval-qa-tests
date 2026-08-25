@@ -5,9 +5,6 @@ on:
     - cron: '0 11 * * *'
   workflow_dispatch:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE20: "false"
-
 jobs:
   # JOB 1: STAGING (Admin + Customer Portal)
   staging_tests:
@@ -27,10 +24,14 @@ jobs:
       run: npx playwright install --with-deps
 
     - name: Run Admin Staging Tests
-      run: npx playwright test reval-smoke-regression.spec.js --reporter=html:playwright-report-staging
+      env:
+        PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report-staging
+      run: npx playwright test reval-smoke-regression.spec.js --reporter=html
 
     - name: Run Customer Portal Staging Tests
-      run: npx playwright test reval-customer-portal-stg.spec.js --reporter=html:playwright-report-staging
+      env:
+        PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report-staging
+      run: npx playwright test reval-customer-portal-stg.spec.js --reporter=html
 
     - name: Upload Staging Report
       if: always()
@@ -44,7 +45,7 @@ jobs:
       if: failure()
       run: |
         curl -X POST -H 'Content-type: application/json' \
-        --data '{"text": "⚠️ *Atención Angel-Claudio:* Se detectó un error en el entorno de *STAGING* (Admin o Portal del Cliente)."}' \
+        --data '{"text": "⚠️ *ALERTA:* Fallo detectado en el entorno de *STAGING* (Admin o Portal del Cliente)."}' \
         ${{ secrets.SLACK_WEBHOOK_URL }}
 
   # JOB 2: PRODUCCIÓN (Admin Prod)
@@ -65,7 +66,9 @@ jobs:
       run: npx playwright install --with-deps
 
     - name: Run Admin Production Tests
-      run: npx playwright test reval-prod-regression.spec.js --reporter=html:playwright-report-prod
+      env:
+        PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report-prod
+      run: npx playwright test reval-prod-regression.spec.js --reporter=html
 
     - name: Upload Production Report
       if: always()
@@ -79,5 +82,5 @@ jobs:
       if: failure()
       run: |
         curl -X POST -H 'Content-type: application/json' \
-        --data '{"text": "⚠️ *Atención Angel-Claudio:* Se detectó un error CRÍTICO en el entorno de *PRODUCCIÓN*."}' \
+        --data '{"text": "⚠️ *ALERTA CRÍTICA:* Fallo detectado en el entorno de *PRODUCCIÓN*."}' \
         ${{ secrets.SLACK_WEBHOOK_URL }}
