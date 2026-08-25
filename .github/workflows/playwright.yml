@@ -9,11 +9,13 @@ jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_HTML_REPORT: playwright-report
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
       with:
-        node-version: 20
+        node-version: 22
 
     - name: Install dependencies
       run: npm ci || npm install
