@@ -1,0 +1,113 @@
+{
+  "cookies": [
+    {
+      "name": "_shopify_essential",
+      "value": ":AaA5Hum_AAEAGlAR1UNMluGfoTzMWF-cdL17o3UflbPxiyoCQIfwK_ss9WWv_5Fg9Ny_qeKRTjSPXoPGiPU2FQwXlmylGBpV55NpWpgHKWl7EZ0N9nlJ_ZH5jF2wD230YDeKWC1UEVys0OS9piEJNCHhbd6aG54SNRgyAz8DqGtxJMFABpZGkr1ZzR750N-s5uMLiWfkL3YK-eMDGcqllzT0kTGNsuDBmrIGX4yrCrIopIxw31eCQVWG3m-t3c9IQR4n6N6lubKSXSCq6tp40PR-dJ_HgmdOL0orhWj2hTyn9LcIXJLrrAKLq0nMo0cQ0jje9k1RKz2WQ7CA7_iNhK2ux4eMicamUsh68XLoFqQWvsWNte-rjjghcxqrQ1HJ1aiIjPn5zY6WBPW9iMyGnKyMIAw6EGCv2WWj2_0HCUPZi2zdP_KoVyt_lLo2G3iYg_W-HuUHrip6aEFJf5jiwbP0e1J5ta56orojgqkhZfe7t-dk0ZWr4ja-iYSGud5Y0zi9twT4SmHJ6eImhKcbiCrsEqqGsiFKqLQN7FNaT1bdWZrh1XZ6eM33peJPgav6dm8QsDIejeSrcZDgJpIf-uuydRSinmWXRfIXDLWoftN4leKIuwoXaZABuDYX0SEZ1w:",
+      "domain": "shopify.com",
+      "path": "/authentication/86553460929",
+      "expires": 1819200743.237896,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_shopify_essential",
+      "value": ":AaA5Hum_AAEAGlAR1UNMluGfoTzMWF-cdL17o3UflbPxiyoCQIfwK_ss9WWv_5Fg9Ny_qeKRTjSPXoPGiPU2FQwXlmylGBpV55NpWpgHKWl7EZ0N9nlJ_ZH5jF2wD230YDeKWC1UEVys0OS9piEJNCHhbd6aG54SNRgyAz8DqGtxJMFABpZGkr1ZzR750N-s5uMLiWfkL3YK-eMDGcqllzT0kTGNsuDBmrIGX4yrCrIopIxw31eCQVWG3m-t3c9IQR4n6N6lubKSXSCq6tp40PR-dJ_HgmdOL0orhWj2hTyn9LcIXJLrrAKLq0nMo0cQ0jje9k1RKz2WQ7CA7_iNhK2ux4eMicamUsh68XLoFqQWvsWNte-rjjghcxqrQ1HJ1aiIjPn5zY6WBPW9iMyGnKyMIAw6EGCv2WWj2_0HCUPZi2zdP_KoVyt_lLo2G3iYg_W-HuUHrip6aEFJf5jiwbP0e1J5ta56orojgqkhZfe7t-dk0ZWr4ja-iYSGud5Y0zi9twT4SmHJ6eImhKcbiCrsEqqGsiFKqLQN7FNaT1bdWZrh1XZ6eM33peJPgav6dm8QsDIejeSrcZDgJpIf-uuydRSinmWXRfIXDLWoftN4leKIuwoXaZABuDYX0SEZ1w:",
+      "domain": "shopify.com",
+      "path": "/86553460929/auth",
+      "expires": 1819200743.238069,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_shopify_essential",
+      "value": ":AaA5HuftAAH_Jh9jgs19IjUpDK5Z2z-MhjP_6UarfYy_HCfjxm_2gWj4XwHl8zwN4-EuCsyZzs2AOqEZ89MaP6wTQuxiFiUr1efVbIHRr-bd5uGrUKMX1zWEVLOzodqYYAs4DCWJRK5MxX_DydsA7AGNoyP0DyKrxheFpPMYBXVMDQv0zBJ1TQrrQjGJQgdDqPfJBVotBkRiah16ykrfjblLgpC7GXrpwoA_IFx5mJmWgR7-aK4YpShx6wAxD2w3ROUHpaY6D7gtyj_lZP4-FjL9Mr5A134p00MD5ZnlSHaPHCJAxe6ewZgejVutGqJgEXE66y9F-bc2nz-Bezy3Inj6eNTw9LY2gGGKZi3gT7iqMy3xf5GTcjeZR9yOu3NVVLlQyh6ANKZW2f7FPM6ZT0Q_H9oXipGBTYn4SosJu_-OlG_Ut5ZDrGnCcaZJ1-3-ZbAAPyG07zUz6PbEROyNExvLxEbM1mc__AeBJSpao2YNHfi0bO1uVbzx3G8POK1PdwxbkyTqNf2cXpMvBcHVjqjuSguOO_Oh1oOrOPBQJny1FZzXLNxKeEha1kGnGlHa_bFhwnuJQOwB9brbm-yOFI6N8sPnhAl7J_x6BUqEuAg81Rh_uXrM-fESnH1dlay88Aa8f0S1hZdjoO0l4mXgw_b8yYLuzCAxKplMzUOsc-VNPrvSeT5niKm_99bYhcl38owY3IyQVA8jJFKgHay_OxzSZe3ZWiE9qVqxVH9eebrtqm3x8zoBzf7BTjQ:",
+      "domain": "shopify.com",
+      "path": "/86553460929",
+      "expires": 1819200747.828432,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_shop_app_essential",
+      "value": ":AaA5Huy_AAEAhRPEjXHOlBQeSteYwHmT2naBqRYXBn8BsxpDKUaF0TcVT_FaCbDAZ8RURdPu9SBym4Tu7JfNkNAc33ZsqL87sqVyrxp4rD8Dg-f3HZT4JYOetJs:",
+      "domain": ".shop.app",
+      "path": "/",
+      "expires": 1819200723.148072,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_shopify_essential",
+      "value": ":AaA5HutMAAEAq8gDI8fxgBkleksLFoB4AzQbZHGuRz-nAaxYYPC4G0Ng_EMjT9Peqvk-G3cm-pK1spERJVtxV3PqmwUN4GxiAMoY-wlJlalN0tKihecfHxIMkeZTO_9HYsmsce7a5Ho23zC5P4wwqT85-BVzu0WZ352OzNZuqnldppZXJI5t7ysNOw_h5LBPo1Oel1Rb7vfp-YwQ4Jrth7Br497QywxBmcHWseDy5jhNK1i2AscC58AgCy9IoGprkyCnNcHxPqH4lQLA5jn4ctdUGD0c8WD2KxnMDfzGExLOVfv7sJmHk2hvs1qTkopU3xYTpFR80XdItJBzIKD5EdEeTR7wzFWzz_6f5fCkidkt9QxHwp-QcImB_S2wwk2vfefUlnhiVyc0QL7DZPQR9nEg9vDsRmX2aUQ0ap5kCgM_yHHm-xeuzeAIWCPsmZ5-UFY0GgxH-bAWFahkRjhVuFUqARFSSSWcUZf1bhYtodNOPVxp5EpgVpRPH-NYHMH-GcHwzRy2XGv3_iKdHDOzWnFlz3cFHAHfuBvZpNvpT4qPC2co4_8DYoH-Fz_fsbdqTWwDLvF3xt2XOPq0gGfRJl6QPI8ZHnGgKgGOzOFsj37SU_hFXQVyYnmWGRTvcT6sXGiSJRPyReA1XvRmzTK-winJE8Mz4P4AmIr9vVykY-jZ-a_masILtQz8bnyLMiTnj5JZbuRZ90iao5iiRS3vOwGDry32jT_QCrYPRWFAhmMkoBgu0A:",
+      "domain": "mp-subscriptions.myshopify.com",
+      "path": "/",
+      "expires": 1819200744.445638,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_shopify_analytics",
+      "value": ":AaA5Hz_PAAEAtePycgag4xrxH1ftAuz1XTi6pMJjiiT-WOCEQoqWz78377ahkQduBOpAaZS_1j31thBcknc6wo2-Y1a2xInxmjnqGLVH2lqAFZ55QzNmc_D2CZGqoeM1-FizCpAx_UK9crN1En9QnIvHMYy7C_JcRgbWMVP_7nn3bLa_dI5qmK_AhO53uMm_1PLn-GsKaGCAn1_CFSGUQ5oT6BFrXKFz8awx596-NlEdgldERb0lZzm80JOgw1IKaDwDjjLTpH5u300-L4wTcALjqXTpb24CW0CHhQ:",
+      "domain": "mp-subscriptions.myshopify.com",
+      "path": "/",
+      "expires": 1819200744.445827,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_shopify_marketing",
+      "value": ":AaA5Hu32AAEAhY1wxtIwNw6woFTPU642rYWHQFEXHQqRwDR6CspCaJ9uNR6xwyQKxhxImKGNuDYDH2P08rN2M21O-Yb02M01o1N78OcyfYnnksIxcxEmdIlB-4XW3bZ019G8IyU5yZW9ljdt-dwWnM1m4q1X:",
+      "domain": "mp-subscriptions.myshopify.com",
+      "path": "/",
+      "expires": 1819200744.445907,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_shopify_y",
+      "value": "8d04d9a3-3b01-4d42-89c9-c172faa341cc",
+      "domain": ".mp-subscriptions.myshopify.com",
+      "path": "/",
+      "expires": 1819222344.446001,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_shopify_s",
+      "value": "e356f6c7-fbec-4c7d-9d84-4fa099529951",
+      "domain": ".mp-subscriptions.myshopify.com",
+      "path": "/",
+      "expires": 1787666544.44624,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "https://shopify.com",
+      "localStorage": [
+        {
+          "name": "bugsnag-anonymous-id",
+          "value": "cmt8pflh800003b6r0vqrwxvd"
+        },
+        {
+          "name": "lastAuthMethod:86553460929",
+          "value": "email"
+        },
+        {
+          "name": "app:css-key:__CUSTOMER_ACCOUNT_EXCHANGE_TOKEN__-sid:86553460929-cid:10170811187393",
+          "value": "{\"accessToken\":\"shcat_eyJraWQiOiIwIiwidHlwIjoiYWNjZXNzIiwiYWxnIjoiRUQyNTUxOSJ9.eyJzaG9wSWQiOjg2NTUzNDYwOTI5LCJjaWQiOiIyN2U4MjFmMy02ZDE2LTQ0YjQtODY0OC1iMDA2Mzg2N2NjODIiLCJpYXQiOjE3ODc2NjQ3NDMsImV4cCI6MTc4NzY2ODM0MywiaXNzIjoiaHR0cHM6XC9cL3Nob3BpZnkuY29tXC9hdXRoZW50aWNhdGlvblwvODY1NTM0NjA5MjkiLCJzdWIiOjEwMTcwODExMTg3MzkzLCJzY29wZSI6Im9wZW5pZCBlbWFpbCBjdXN0b21lci1hY2NvdW50LWFwaTpmdWxsIiwicnRpZCI6IjAxYTAzOTFmLTNjOTEtYTQ3NC1kODFkLWY4ZDVhMTlkZGEyZiIsInNpZCI6IjAxTTBXSFlFQUVKSEcyRUhEUzBWMUNBMDRYIn0.F05e50ab2n39E310bntVtpOkiQ9pIvMj6ZJ0V-6L0K405YDSBszSqGP07T7YlxnLJwsJafUVvu_xhpLL11o4BA\",\"expiresAt\":1787668343402}"
+        }
+      ]
+    }
+  ]
+}
