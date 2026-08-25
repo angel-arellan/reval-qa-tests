@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  # JOB 1: Pruebas de Staging (Admin + Customer Portal)
+  # JOB 1: STAGING (Admin + Customer Portal)
   staging_tests:
     name: Staging Environment Tests
     timeout-minutes: 60
@@ -43,10 +43,10 @@ jobs:
       if: failure()
       run: |
         curl -X POST -H 'Content-type: application/json' \
-        --data '{"text": "🚨 *ALERTA STAGING: Fallo detectado en Reval STG*\n\nSe ha detectado un error en las pruebas automatizadas de Staging.\n\nRevisa el reporte HTML en GitHub Actions."}' \
+        --data '{"text": "⚠️ *Atención Angel-Claudio:* Falló el ambiente de *STAGING* (Admin o Portal del Cliente).\n📌 Revisa el reporte en GitHub Actions."}' \
         ${{ secrets.SLACK_WEBHOOK_URL }}
 
-  # JOB 2: Pruebas de Producción (Admin Prod)
+  # JOB 2: PRODUCCIÓN (Admin Prod)
   production_tests:
     name: Production Environment Tests
     timeout-minutes: 60
@@ -80,5 +80,5 @@ jobs:
       if: failure()
       run: |
         curl -X POST -H 'Content-type: application/json' \
-        --data '{"text": "🚨 *ALERTA PRODUCCIÓN: Fallo detectado en Reval PROD*\n\nSe ha detectado un error crítico en las pruebas automatizadas de Producción.\n\nRevisa el reporte HTML en GitHub Actions inmediatamente."}' \
+        --data '{"text": "⚠️ *Atención Angel-Claudio:* Falló el ambiente de *PRODUCCIÓN*.\n📌 Revisa el reporte en GitHub Actions inmediatamente."}' \
         ${{ secrets.SLACK_WEBHOOK_URL }}
