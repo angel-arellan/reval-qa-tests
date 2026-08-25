@@ -1,0 +1,132 @@
+{
+  "cookies": [
+    {
+      "name": "_shopify_essential",
+      "value": ":AaA6meuDAAEA4cgmsy7_xkALHrdM1YX9pyG-xvXKt1eiariQLF5sVxKkvFpUEWhoZFE473G2dfofwhXEGRJ2kjV3hRqQK5aRLZf-vqA5gQ1hg8E3tKNmeIfxARD5AuChmmJLYmHdKcNVlaLNZ2QVhlEJ1yZTuxvXSRD5Q6vJvKMR-aZoAL7FykMgSWs-7fFTBHOvUwQLtUupaAky_0OaeAYIw3mDL6H5yZGcMlaZeX5w8jvIgEWli17_amxKwrNi8aASuSvo3WqJ_ZBDCevhWCnhJ67u9b6xsCJokaq3ae_RM1quH0RmdBz8Cw9J6mVaWQDUVeBmbD3YEUqSOY17X6G49s08F367mEXD6D2W2hEwfbb1G8itr1wabZ8T2Rl_OHGBJ9snICt5olttF2H_0TAnZ430VuH_hYsb9JEm7vDAP0bVWPlKN7tPaOpESEwwUjGNbQUVwAZdQKR2_GBdHnJPpmKPVN_5lhnMVVBiV5NOpHuMvrwQUUoBspDY9r9v7QApJrE-8MCHEH8r_8NbLLmMRUT1WSHGIZb_YjBMsQvwx7r-pIb_SttXLbEKVpSGAu7Apr81hc7JgYXDhxG0wBA7S84W5Ghw_nm3LfdAh9wog8aOJvWXq8YKOlvRJA:",
+      "domain": "shopify.com",
+      "path": "/authentication/81732960512",
+      "expires": 1819225600.611555,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_shopify_essential",
+      "value": ":AaA6meuDAAEA4cgmsy7_xkALHrdM1YX9pyG-xvXKt1eiariQLF5sVxKkvFpUEWhoZFE473G2dfofwhXEGRJ2kjV3hRqQK5aRLZf-vqA5gQ1hg8E3tKNmeIfxARD5AuChmmJLYmHdKcNVlaLNZ2QVhlEJ1yZTuxvXSRD5Q6vJvKMR-aZoAL7FykMgSWs-7fFTBHOvUwQLtUupaAky_0OaeAYIw3mDL6H5yZGcMlaZeX5w8jvIgEWli17_amxKwrNi8aASuSvo3WqJ_ZBDCevhWCnhJ67u9b6xsCJokaq3ae_RM1quH0RmdBz8Cw9J6mVaWQDUVeBmbD3YEUqSOY17X6G49s08F367mEXD6D2W2hEwfbb1G8itr1wabZ8T2Rl_OHGBJ9snICt5olttF2H_0TAnZ430VuH_hYsb9JEm7vDAP0bVWPlKN7tPaOpESEwwUjGNbQUVwAZdQKR2_GBdHnJPpmKPVN_5lhnMVVBiV5NOpHuMvrwQUUoBspDY9r9v7QApJrE-8MCHEH8r_8NbLLmMRUT1WSHGIZb_YjBMsQvwx7r-pIb_SttXLbEKVpSGAu7Apr81hc7JgYXDhxG0wBA7S84W5Ghw_nm3LfdAh9wog8aOJvWXq8YKOlvRJA:",
+      "domain": "shopify.com",
+      "path": "/81732960512/auth",
+      "expires": 1819225600.6117,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_shopify_essential",
+      "value": ":AaA6meogAAH_NJXK0I582sSYO26j6iAFy0ROAgrjIt89GiknY1T3Y7wKUAWdEAO4em3kcN7JPB3SK-zQZt5UoFtlsVemc5Qs9Mk1hL_FaqlbraAJgvQC2x9PHdDHU9ZxvtxpAw9J4iiJyJuBiIiscGF3Yp7BwnqIT315V8MUE1_7C7PZIOSDRMa9-wzkbiwHnrc6yMEJrtwhPogdz4S7rmiuaG3lz6wI1rv7hfbPjSNgGYBbZw379si-sA_TJVnuFGshFGbRSQCEGr3lQcNNzxpnBoM9cw84Q0hW0wY02F2Vv3D9hLptmxj8ItrZd78TCWsTp8JzJdzWAptJZd4CYoejK48X_V-sOQ_pZkvLB86VwCgYBJ3GKKQEMtw5wiwaFOOaT1AmFG4fuomxoePVUh9TEbbf3rWkOK71DWSxtN5SZxY8X6OUu89ziU4i7ltwTlZuVgsq7kyvfEbMFtJejs3GBnvRFrIHlLcFuPdZ__SwPW3kojKPe4Qkocy3KlqRvFqXf_zFCvOCytxLEx2WL27jjMulDKvb8RLDxfwvdXF9m_IC6BWWvCl7vG657640hU8ZKgRVQxnHkYCSjMN06GXsWiuwPKezIOYpbHzsKXahX_RgSZVwoWgDsKJSeLOCGvji9C8deLViefsX9ZeO-2ilgeCjcpQdxtqWipSqeq77WHZLsSwaJtspY8guaV_MCYA40La92rbtIOZpW-4VZq3VA5JjJ3HEiGMtn8y_-Lj_wB-l8PKwb2IT:",
+      "domain": "shopify.com",
+      "path": "/81732960512",
+      "expires": 1819225604.073316,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_shopify_essential",
+      "value": ":AaA6meg_AAEAgZAHohPPuhhIaqebxE8wGLKnHZ1uflKdmYfNu-prVLxg5z9_lT4Z0rpqn-eRyH--xlUtkUMX15mYbhz4cJQ244iZEO901bQD47vQVQxN2xfDxoUhhzNfc6Fsbk367oAkqLF-zi2m8Eae7u92u9oSLCdAk0AFOyN2ECOfgYC008uVZnU6UhSFmGJjpyDD_u7GMS88wUfiJqq4ju758wDIuN4ruk6R6ymR9C1FzSt3NUS_0seb1RRxKmOBw70xKfNkQvNUS8-Ca2NYTioEQL0ifCUYrnN-WvdQHHbCEluuQWFXVSsHmFtK1lqXinbn5SeUfVHsgcePqWk3K4HnVWM35w5KKMQ0nb2nKSDaRQ-aZnFTv-d4jqudBsW9X0kjNji4W3iQ5yY4TEyumYTUv2EU3vUR85CTkKirb4GlTgM3UaIvAf-MXt-Q80YPD_G7ZgGzRaAu5dRpfnVxRvQnSapkPB7VRznIGuJAhtuarnTm6epxhA:",
+      "domain": "www.thewellnessproject.com.ar",
+      "path": "/",
+      "expires": 1819225560.19994,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_shop_app_essential",
+      "value": ":AaA6me5pAAEAQiydEzOSrf4I_UHJ2GItG3GpuyDyNFEz6jWsokc7zCz0abedJCkg9kzUKj72IelzHqIyC4WkFH4DRUMSJDPLhn7BntLteDdwqM3IWwrVP7zWqB456XXcHp_KMDiizXFOHeHDsMbhNLAGg7fItbX0-o90K4fAFR0tKVroIyialO_e9EuKACqK7YHsueUjJinIylQJYtI:",
+      "domain": ".shop.app",
+      "path": "/",
+      "expires": 1819225587.712565,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_shopify_essential",
+      "value": ":AaA6me0VAAEAJINRFLXU40ddNibzgydJgC2iFT92f-NnZs4oncw02Zt54UtbGHARm6DfWRWam_gQQmo0_Ad9wtXlLcoceQMNCp8ZzOnm5mHf0Vbv6hwi4QMLVmzijWp4vD_GmMiVJSzK2yM4VaxoHphFj0rKBvNkxFi5PExod9UGUiRi0892KctIFFRf9F-7xt9Bz8lYbjcIjSnKZYiWOtz-DFW_7PAH5lQxs1QIpBCTYRROGor80HTAXwOTfxsPZNkBrNSCS6pmdTygq7_a7ifZLGogRRD1WTEd1JTF3NJuKDRQnigmoUxUr_W94oORvWso6z-py80tTB4wpBtDVbOSIx7MtnNL4FRmEUFK9J_qkqa1H2uAD0dxhtNKNQj_Vmzy-POQcxyVIZOCwL9apcPrlPIMkv1RMxCnFnEVbZ6JTfvZHTI_QBbp8JD8JCSvDi_-Z4PLcf9zc_pCFsnY-lM4afs3dY7oeJVpQsRLt3zjCh4eIFQue-OYruWaq88TG-f6UaE5X9m2yYLyJLveJ7qNBUJctRUVwaZgsWdrUP-V2b9oJKW4nPPgpJZw_UOCjqIaNKD-eB4RnPlFRj8oMd9KCUfFbQKoVUFyFPen3G2ZWo8vaWDGItj0sPjfZ7XFV8DXHyOc6iB-PGxJjr_Zy-r2h6rN4c1hMDg0TpbbWpJCEybZP-4SWX0agG73LXGLC1vrJZRFrll6ZIvz1kD54ebVKgh_G-zzAvqrfo4R7ssqFMFH:",
+      "domain": "thewellnessproject.com.ar",
+      "path": "/",
+      "expires": 1819225601.828344,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_shopify_analytics",
+      "value": ":AaA6mornAAEA3zGUheiPq7_eFmcsHv3ii5UP5hUcvFSgNz9wMPworaG0ZRaoQ14PE7GgI6gybfqcHjrem2ozoklBObdRW1aplKgv35L3agVaSOGBfwV91OaI7pnY8Kmu-SNZlcT8ToIN1o-k1m_Wu5IErx_Gw1d_1vPcGMAmVaKY0psPG9zikzHYIpSnkA2pE8vW7446H8b96x6H2rOp61qKShax6v6Fo2KgpFhvyGTyWP2kbN4Wxo9JSCLA4ial2KQlbm_Eq_B95RlhwopKKl-ofAkSKbHAScVabxoTbHMbP-jWNe5AA5EqC5GLrrEH01N-1JUGEFREJs0yzthrElpE3flwt7ZlIEj5P1n0e-pFfEN-8J5jHhdz870MbpbE7t5BRlgV4Wg_k-QTMiKDFOGYfx2G3vLdz0WBkr4-MagzW7-Vo_oJ03CXf5k49lAb6bOBaqjnbX6HkM8JGK1liFpJdr_nICw:",
+      "domain": "thewellnessproject.com.ar",
+      "path": "/",
+      "expires": 1819225601.828494,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_shopify_marketing",
+      "value": ":AaA6me-eAAEAPKWMICztYnNJA-TcBw3zT7ZpnH4m9YxpDa_FQQW8M1bzVZbPtVuakVgKm7G1QRHhs9J69-sFJvs03B3HvN6MeEkM_2YeiwWEkwQyyblALynFboMIGmvoYfReA-XVb4_9in7OV_FGo4qU0rZT:",
+      "domain": "thewellnessproject.com.ar",
+      "path": "/",
+      "expires": 1819225601.828594,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_shopify_y",
+      "value": "8f20fd6a-c66f-4abc-b533-0e6816bbf5f2",
+      "domain": ".thewellnessproject.com.ar",
+      "path": "/",
+      "expires": 1819247201.828646,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_shopify_s",
+      "value": "657c7437-0986-451b-8dee-13a2b9ed7d88",
+      "domain": ".thewellnessproject.com.ar",
+      "path": "/",
+      "expires": 1787691401.828785,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "https://shopify.com",
+      "localStorage": [
+        {
+          "name": "bugsnag-anonymous-id",
+          "value": "cmt948dkd00003b72aedmzycl"
+        },
+        {
+          "name": "app:css-key:__CUSTOMER_ACCOUNT_EXCHANGE_TOKEN__-sid:81732960512-cid:10114639134976",
+          "value": "{\"accessToken\":\"shcat_eyJraWQiOiIwIiwidHlwIjoiYWNjZXNzIiwiYWxnIjoiRUQyNTUxOSJ9.eyJzaG9wSWQiOjgxNzMyOTYwNTEyLCJjaWQiOiI4OTJjZmIwOC0zMmJkLTRhN2EtODBlYi1jOWNhODdiM2E3ZmQiLCJpYXQiOjE3ODc2ODk2MDAsImV4cCI6MTc4NzY5MzIwMCwiaXNzIjoiaHR0cHM6XC9cL3Nob3BpZnkuY29tXC9hdXRoZW50aWNhdGlvblwvODE3MzI5NjA1MTIiLCJzdWIiOjEwMTE0NjM5MTM0OTc2LCJzY29wZSI6Im9wZW5pZCBlbWFpbCBjdXN0b21lci1hY2NvdW50LWFwaTpmdWxsIiwicnRpZCI6IjAxYTAzYTlhLTg3ODctODFjMC04MDgxLTUxNzgzZGViMmMwYiIsInNpZCI6IjAxTTBYOU4xM0JFNzBRSlhKWUJHMTJLWVE1In0.UZ7o6H_3g7tN7kmc5ttH0kxrA62ew_fD5A5YoZlNOZ5RAc76JXA3zW9AqbZ0HE5klz17oKfpt1tAXzEI5L3MAg\",\"expiresAt\":1787693199779}"
+        },
+        {
+          "name": "lastAuthMethod:81732960512",
+          "value": "email"
+        }
+      ]
+    },
+    {
+      "origin": "https://shop.app",
+      "localStorage": [
+        {
+          "name": "bugsnag-anonymous-id",
+          "value": "cmt947kb400003b6y3zna049i"
+        }
+      ]
+    }
+  ]
+}
