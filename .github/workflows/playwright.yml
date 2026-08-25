@@ -43,7 +43,7 @@ jobs:
       if: failure()
       run: |
         curl -X POST -H 'Content-type: application/json' \
-        --data '{"text": "⚠️ *Atención Angel-Claudio:* Falló el ambiente de *STAGING* (Admin o Portal del Cliente).\n📌 Revisa el reporte en GitHub Actions."}' \
+        --data '{"text": "⚠️ *Atención Angel-Claudio:* Se detectó un error en el entorno de *STAGING* (Admin o Portal del Cliente)."}' \
         ${{ secrets.SLACK_WEBHOOK_URL }}
 
   # JOB 2: PRODUCCIÓN (Admin Prod)
@@ -80,5 +80,5 @@ jobs:
       if: failure()
       run: |
         curl -X POST -H 'Content-type: application/json' \
-        --data '{"text": "⚠️ *Atención Angel-Claudio:* Falló el ambiente de *PRODUCCIÓN*.\n📌 Revisa el reporte en GitHub Actions inmediatamente."}' \
+        --data '{"text": "⚠️ *Atención Angel-Claudio:* Se detectó un error CRÍTICO en el entorno de *PRODUCCIÓN*."}' \
         ${{ secrets.SLACK_WEBHOOK_URL }}
