@@ -11,7 +11,6 @@ test.use({
 
 test.describe('Reval Customer Portal STG – Suite de UI & Navegación', () => {
 
-  // Función para desbloquear la tienda si aparece el muro de contraseña
   async function bypassPasswordProtection(page) {
     if (page.url().includes('/password')) {
       const passwordInput = page.locator('input[type="password"], input[name="password"]');
@@ -28,16 +27,12 @@ test.describe('Reval Customer Portal STG – Suite de UI & Navegación', () => {
     await page.goto(url, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(2000);
 
-    // Si nos redirige a la pantalla de contraseña de la tienda, la desbloqueamos
     await bypassPasswordProtection(page);
 
     const currentUrl = page.url();
     const bodyText = await page.locator('body').innerText();
 
-    // 1. Validar que logramos pasar la pantalla de clave
     expect(currentUrl, `${nombreSeccion} quedó atrapado en el muro de contraseña`).not.toContain('/password');
-
-    // 2. Validar que la página no tenga errores de servidor o código roto
     expect(bodyText, `Error de servidor en ${nombreSeccion}`).not.toContain('Error 500');
     expect(bodyText, `Ruta no encontrada en ${nombreSeccion}`).not.toContain('404 Not Found');
     expect(bodyText, `Texto indefinido en ${nombreSeccion}`).not.toContain('undefined');
