@@ -5,14 +5,15 @@ on:
     - cron: '0 11 * * *'
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE20: "false"
+
 jobs:
   # JOB 1: STAGING (Admin + Customer Portal)
   staging_tests:
     name: Staging Environment Tests
     timeout-minutes: 60
     runs-on: ubuntu-latest
-    env:
-      PLAYWRIGHT_HTML_REPORT: playwright-report-staging
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
@@ -26,10 +27,10 @@ jobs:
       run: npx playwright install --with-deps
 
     - name: Run Admin Staging Tests
-      run: npx playwright test reval-smoke-regression.spec.js
+      run: npx playwright test reval-smoke-regression.spec.js --reporter=html:playwright-report-staging
 
     - name: Run Customer Portal Staging Tests
-      run: npx playwright test reval-customer-portal-stg.spec.js
+      run: npx playwright test reval-customer-portal-stg.spec.js --reporter=html:playwright-report-staging
 
     - name: Upload Staging Report
       if: always()
@@ -51,8 +52,6 @@ jobs:
     name: Production Environment Tests
     timeout-minutes: 60
     runs-on: ubuntu-latest
-    env:
-      PLAYWRIGHT_HTML_REPORT: playwright-report-prod
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
@@ -66,7 +65,7 @@ jobs:
       run: npx playwright install --with-deps
 
     - name: Run Admin Production Tests
-      run: npx playwright test reval-prod-regression.spec.js
+      run: npx playwright test reval-prod-regression.spec.js --reporter=html:playwright-report-prod
 
     - name: Upload Production Report
       if: always()
