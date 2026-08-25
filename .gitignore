@@ -8,3 +8,5 @@ node_modules/
 /playwright/.auth/
 .chrome-user-data
 .chrome-user-data-prod
+.chrome-user-data
+.chrome-user-data-prod
