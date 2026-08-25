@@ -21,13 +21,17 @@ jobs:
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
 
-    - name: Run Staging Tests
-      id: staging
+    - name: Run Admin Staging Tests
+      id: staging_admin
       run: npx playwright test tests/reval-smoke-regression.spec.js --reporter=html
 
-    - name: Run Production Tests
-      id: prod
+    - name: Run Admin Production Tests
+      id: prod_admin
       run: npx playwright test tests/reval-prod-regression.spec.js --reporter=html
+
+    - name: Run Customer Portal Staging Tests
+      id: staging_customer
+      run: npx playwright test tests/reval-customer-portal-stg.spec.js --reporter=html
 
     - name: Upload Test Report Artifact
       if: always()
@@ -41,5 +45,5 @@ jobs:
       if: failure()
       run: |
         curl -X POST -H 'Content-type: application/json' \
-        --data '{"text": "🚨 *ALERTA DE REGRESIÓN: Fallo detectado en Reval Admin*\n\nSe ha detectado un error en las pruebas e2e automatizadas. Un módulo puede estar caído o roto tras un pasaje a producción.\n\nRevisa el reporte HTML en GitHub Actions para aislar la falla."}' \
+        --data '{"text": "🚨 *ALERTA DE REGRESIÓN: Fallo detectado en Reval*\n\nSe ha detectado un error en las pruebas e2e automatizadas (Admin o Portal de Cliente).\n\nRevisa el reporte HTML en GitHub Actions para aislar la falla."}' \
         ${{ secrets.SLACK_WEBHOOK_URL }}
