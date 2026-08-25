@@ -9,7 +9,6 @@ env:
   ACTIONS_NODE20_SILENCE_DEPRECATION_WARNINGS: "true"
 
 jobs:
-  # JOB 1: STAGING (Admin + Customer Portal)
   staging_tests:
     name: Staging Environment Tests
     timeout-minutes: 60
@@ -48,10 +47,9 @@ jobs:
       if: failure()
       run: |
         curl -X POST -H 'Content-type: application/json' \
-        --data '{"text": "⚠️ *ALERTA:* Fallo detectado en el entorno de *STAGING* (Admin o Portal del Cliente)."}' \
+        --data '{"text": "🚨 *ALERTA DE REGRESIÓN - STAGING*\n\n⚠️ *Atención Angel-Claudio:* Fallo detectado en el entorno de *STAGING* (Admin o Portal del Cliente).\n\n📌 *Algún módulo de estos pudo haber fallado:*\n• Dashboard\n• Suscripciones\n• Clientes\n• Pedidos\n• Planes\n• Productos\n• Sorpresas\n• Herramientas\n• Configuración\n• Portal de cliente"}' \
         ${{ secrets.SLACK_WEBHOOK_URL }}
 
-  # JOB 2: PRODUCCIÓN (Admin Prod)
   production_tests:
     name: Production Environment Tests
     timeout-minutes: 60
@@ -85,5 +83,5 @@ jobs:
       if: failure()
       run: |
         curl -X POST -H 'Content-type: application/json' \
-        --data '{"text": "⚠️ *ALERTA CRÍTICA:* Fallo detectado en el entorno de *PRODUCCIÓN*."}' \
+        --data '{"text": "🚨 *ALERTA DE REGRESIÓN - PRODUCCIÓN*\n\n⚠️ *Atención Angel-Claudio:* Fallo detectado en el entorno de *PRODUCCIÓN*.\n\n📌 *Algún módulo de estos pudo haber fallado:*\n• Dashboard\n• Suscripciones\n• Clientes\n• Pedidos\n• Planes\n• Productos\n• Sorpresas\n• Herramientas\n• Configuración"}' \
         ${{ secrets.SLACK_WEBHOOK_URL }}
