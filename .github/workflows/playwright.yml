@@ -5,6 +5,9 @@ on:
     - cron: '0 11 * * *'
   workflow_dispatch:
 
+env:
+  ACTIONS_NODE20_SILENCE_DEPRECATION_WARNINGS: "true"
+
 jobs:
   # JOB 1: STAGING (Admin + Customer Portal)
   staging_tests:
