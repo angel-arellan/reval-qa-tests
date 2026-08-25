@@ -23,15 +23,15 @@ jobs:
 
     - name: Run Admin Staging Tests
       id: staging_admin
-      run: npx playwright test tests/reval-smoke-regression.spec.js --reporter=html
+      run: npx playwright test reval-smoke-regression.spec.js
 
     - name: Run Admin Production Tests
       id: prod_admin
-      run: npx playwright test tests/reval-prod-regression.spec.js --reporter=html
+      run: npx playwright test reval-prod-regression.spec.js
 
     - name: Run Customer Portal Staging Tests
       id: staging_customer
-      run: npx playwright test tests/reval-customer-portal-stg.spec.js --reporter=html
+      run: npx playwright test reval-customer-portal-stg.spec.js
 
     - name: Upload Test Report Artifact
       if: always()
