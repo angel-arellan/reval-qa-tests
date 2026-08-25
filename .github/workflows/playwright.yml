@@ -1,4 +1,4 @@
-name: Playwright Daily E2E Regression - Reval (Lunes a Lunes)
+name: Playwright Tests
 
 on:
   schedule:
@@ -6,83 +6,63 @@ on:
   workflow_dispatch:
 
 jobs:
-  staging_tests:
-    name: Staging Environment Tests
+  test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
-    env:
-      ACTIONS_NODE20_SILENCE_DEPRECATION_WARNINGS: "true"
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with:
-        node-version: 22
+      - uses: actions/checkout@v4
 
-    - name: Install dependencies
-      run: npm ci || npm install
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
 
-    - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Run Admin Staging Tests
-      env:
-        PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report-staging
-      run: npx playwright test reval-smoke-regression.spec.js --reporter=html
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
 
-    - name: Run Customer Portal Staging Tests
-      env:
-        PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report-staging
-      run: npx playwright test reval-customer-portal-stg.spec.js --reporter=html
+      - name: Run Staging Tests
+        id: run_staging_tests
+        continue-on-error: true
+        run: npx playwright test tests/reval-smoke-regression.spec.js tests/reval-customer-portal-stg.spec.js --reporter=html
 
-    - name: Upload Staging Report
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: playwright-report-staging
-        path: playwright-report-staging/
-        retention-days: 30
+      - name: Upload Staging HTML Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-staging
+          path: playwright-report/
+          retention-days: 30
 
-    - name: Send Slack Alert on Staging Failure
-      if: failure()
-      run: |
-        curl -X POST -H 'Content-type: application/json' \
-        --data '{"text": "🚨 *ALERTA DE REGRESIÓN - STAGING*\n\n⚠️ *Atención Angel-Claudio:* Fallo detectado en el entorno de *STAGING* (Admin o Portal del Cliente).\n\n📌 *Algún módulo de estos pudo haber fallado:*\n• Dashboard\n• Suscripciones\n• Clientes\n• Pedidos\n• Planes\n• Productos\n• Sorpresas\n• Herramientas\n• Configuración\n• Portal de cliente"}' \
-        ${{ secrets.SLACK_WEBHOOK_URL }}
+      - name: Notify Slack on Staging Failure
+        if: steps.run_staging_tests.outcome == 'failure'
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+          --data '{"text": "🚨 *ALERTA DE REGRESIÓN - STAGING*\n\n⚠️ *Atención Angel-Claudio:* Fallo detectado en el entorno de *STAGING* (Admin o Portal del Cliente).\n\n📌 *Algún módulo de estos pudo haber fallado:*\n• Dashboard\n• Suscripciones\n• Clientes\n• Pedidos\n• Planes\n• Productos\n• Sorpresas\n• Herramientas\n• Configuración\n• Portal de cliente"}' \
+          ${{ secrets.SLACK_WEBHOOK_URL }}
 
-  production_tests:
-    name: Production Environment Tests
-    timeout-minutes: 60
-    runs-on: ubuntu-latest
-    env:
-      ACTIONS_NODE20_SILENCE_DEPRECATION_WARNINGS: "true"
-    steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with:
-        node-version: 22
+      - name: Run Production Tests
+        id: run_prod_tests
+        continue-on-error: true
+        run: npx playwright test tests/reval-prod-regression.spec.js tests/reval-customer-portal-prod.spec.js --reporter=html
 
-    - name: Install dependencies
-      run: npm ci || npm install
+      - name: Upload Production HTML Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-prod
+          path: playwright-report/
+          retention-days: 30
 
-    - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
+      - name: Notify Slack on Production Failure
+        if: steps.run_prod_tests.outcome == 'failure'
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+          --data '{"text": "🚨 *ALERTA DE REGRESIÓN - PRODUCCIÓN*\n\n⚠️ *Atención Angel-Claudio:* Fallo detectado en el entorno de *PRODUCCIÓN* (Admin o Portal del Cliente).\n\n📌 *Algún módulo de estos pudo haber fallado:*\n• Dashboard\n• Suscripciones\n• Clientes\n• Pedidos\n• Planes\n• Productos\n• Sorpresas\n• Herramientas\n• Configuración\n• Portal de cliente"}' \
+          ${{ secrets.SLACK_WEBHOOK_URL }}
 
-    - name: Run Admin Production Tests
-      env:
-        PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report-prod
-      run: npx playwright test reval-prod-regression.spec.js --reporter=html
-
-    - name: Upload Production Report
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: playwright-report-prod
-        path: playwright-report-prod/
-        retention-days: 30
-
-    - name: Send Slack Alert on Production Failure
-      if: failure()
-      run: |
-        curl -X POST -H 'Content-type: application/json' \
-        --data '{"text": "🚨 *ALERTA DE REGRESIÓN - PRODUCCIÓN*\n\n⚠️ *Atención Angel-Claudio:* Fallo detectado en el entorno de *PRODUCCIÓN*.\n\n📌 *Algún módulo de me estos pudo haber fallado:*\n• Dashboard\n• Suscripciones\n• Clientes\n• Pedidos\n• Planes\n• Productos\n• Sorpresas\n• Herramientas\n• Configuración"}' \
-        ${{ secrets.SLACK_WEBHOOK_URL }}
+      - name: Fail workflow if any test step failed
+        if: steps.run_staging_tests.outcome == 'failure' || steps.run_prod_tests.outcome == 'failure'
+        run: exit 1
