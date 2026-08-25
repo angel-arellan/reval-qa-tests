@@ -6,11 +6,13 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  # JOB 1: Pruebas de Staging (Admin + Customer Portal)
+  staging_tests:
+    name: Staging Environment Tests
     timeout-minutes: 60
     runs-on: ubuntu-latest
     env:
-      PLAYWRIGHT_HTML_REPORT: playwright-report
+      PLAYWRIGHT_HTML_REPORT: playwright-report-staging
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
@@ -24,28 +26,59 @@ jobs:
       run: npx playwright install --with-deps
 
     - name: Run Admin Staging Tests
-      id: staging_admin
       run: npx playwright test reval-smoke-regression.spec.js
 
-    - name: Run Admin Production Tests
-      id: prod_admin
-      run: npx playwright test reval-prod-regression.spec.js
-
     - name: Run Customer Portal Staging Tests
-      id: staging_customer
       run: npx playwright test reval-customer-portal-stg.spec.js
 
-    - name: Upload Test Report Artifact
+    - name: Upload Staging Report
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: playwright-report
-        path: playwright-report/
+        name: playwright-report-staging
+        path: playwright-report-staging/
         retention-days: 30
 
-    - name: Send Slack Alert ONLY on Failure
+    - name: Send Slack Alert on Staging Failure
       if: failure()
       run: |
         curl -X POST -H 'Content-type: application/json' \
-        --data '{"text": "🚨 *ALERTA DE REGRESIÓN: Fallo detectado en Reval*\n\nSe ha detectado un error en las pruebas e2e automatizadas (Admin o Portal de Cliente).\n\nRevisa el reporte HTML en GitHub Actions para aislar la falla."}' \
+        --data '{"text": "🚨 *ALERTA STAGING: Fallo detectado en Reval STG*\n\nSe ha detectado un error en las pruebas automatizadas de Staging.\n\nRevisa el reporte HTML en GitHub Actions."}' \
+        ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # JOB 2: Pruebas de Producción (Admin Prod)
+  production_tests:
+    name: Production Environment Tests
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_HTML_REPORT: playwright-report-prod
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+
+    - name: Install dependencies
+      run: npm ci || npm install
+
+    - name: Install Playwright Browsers
+      run: npx playwright install --with-deps
+
+    - name: Run Admin Production Tests
+      run: npx playwright test reval-prod-regression.spec.js
+
+    - name: Upload Production Report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: playwright-report-prod
+        path: playwright-report-prod/
+        retention-days: 30
+
+    - name: Send Slack Alert on Production Failure
+      if: failure()
+      run: |
+        curl -X POST -H 'Content-type: application/json' \
+        --data '{"text": "🚨 *ALERTA PRODUCCIÓN: Fallo detectado en Reval PROD*\n\nSe ha detectado un error crítico en las pruebas automatizadas de Producción.\n\nRevisa el reporte HTML en GitHub Actions inmediatamente."}' \
         ${{ secrets.SLACK_WEBHOOK_URL }}
