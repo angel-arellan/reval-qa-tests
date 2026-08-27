@@ -25,14 +25,13 @@ test.describe('Reval Customer Portal STG – Suite de UI & Navegación', () => {
 
   async function validarVistaUI(page, url, nombreSeccion) {
     await page.goto(url, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(2000);
-
     await bypassPasswordProtection(page);
+    await page.waitForTimeout(2000);
 
     const currentUrl = page.url();
     const bodyText = await page.locator('body').innerText();
 
-    expect(currentUrl, `${nombreSeccion} quedó atrapado en el muro de contraseña`).not.toContain('/password');
+    expect(currentUrl, `Redirección a pantalla de contraseña en ${nombreSeccion}`).not.toContain('/password');
     expect(bodyText, `Error de servidor en ${nombreSeccion}`).not.toContain('Error 500');
     expect(bodyText, `Ruta no encontrada en ${nombreSeccion}`).not.toContain('404 Not Found');
     expect(bodyText, `Texto indefinido en ${nombreSeccion}`).not.toContain('undefined');
@@ -66,7 +65,7 @@ test.describe('Reval Customer Portal STG – Suite de UI & Navegación', () => {
   test('CST-STG04: Términos y Condiciones', async ({ page }) => {
     await validarVistaUI(
       page,
-      'https://mp-subscriptions.myshopify.com/policies/terms-of-service?country=AR',
+      'https://www.thewellnessproject.com.ar/policies/terms-of-service?country=AR',
       'Términos y Condiciones'
     );
   });
@@ -74,7 +73,7 @@ test.describe('Reval Customer Portal STG – Suite de UI & Navegación', () => {
   test('CST-STG05: Política de Privacidad', async ({ page }) => {
     await validarVistaUI(
       page,
-      'https://mp-subscriptions.myshopify.com/policies/privacy-policy?country=AR',
+      'https://www.thewellnessproject.com.ar/policies/privacy-policy?country=AR',
       'Política de Privacidad'
     );
   });
