@@ -49,7 +49,7 @@ test.describe(`Storefront Suite Definitiva – ${BASE_URL}`, () => {
     await neutralizarPopups(page);
     await validarSinErrores(page, 'Home');
 
-    const logo = page.locator('header img, [class*="logo"], header a').first();
+    const logo = page.locator('header img-INEXISTENTE, [class*="logo"], header a').first();
     await expect(logo).toBeVisible({ timeout: 10000 });
 
     await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }));
