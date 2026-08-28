@@ -159,3 +159,7 @@ test.describe(`Storefront Suite Definitiva – ${BASE_URL}`, () => {
   });
 
 });
+
+test('STF-00: Prueba de Alerta Ficticia', async ({ page }) => {
+  expect(true, 'Prueba de falla para Slack').toBe(false);
+});
