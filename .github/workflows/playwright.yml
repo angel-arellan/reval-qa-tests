@@ -36,11 +36,11 @@ jobs:
           path: playwright-report/
           retention-days: 30
 
-      - name: Notify Slack on Staging Failure
+      - name: Notify Slack on Staging Failure (Reval)
         if: failure()
         run: |
           curl -X POST -H 'Content-type: application/json' \
-          --data '{"text": "🚨 *ALERTA DE REGRESIÓN - STAGING*\n\n⚠️ *Atención Angel-Claudio:* Fallo detectado en el entorno de *STAGING* (Admin o Portal del Cliente)."}' \
+          --data '{"text": "🚨 *ALERTA DE REGRESIÓN - REVAL STAGING*\n\n⚠️ *Atención Team:* Fallo detectado en el entorno de *STAGING* de Reval (Admin o Portal del Cliente)."}' \
           ${{ secrets.SLACK_WEBHOOK_URL }}
 
   production-tests:
@@ -73,11 +73,11 @@ jobs:
           path: playwright-report/
           retention-days: 30
 
-      - name: Notify Slack on Production Failure
+      - name: Notify Slack on Production Failure (Reval)
         if: failure()
         run: |
           curl -X POST -H 'Content-type: application/json' \
-          --data '{"text": "🚨 *ALERTA DE REGRESIÓN - PRODUCCIÓN*\n\n⚠️ *Atención Angel-Claudio:* Fallo detectado en el entorno de *PRODUCCIÓN* (Admin o Portal del Cliente)."}' \
+          --data '{"text": "🚨 *ALERTA DE REGRESIÓN - REVAL PRODUCCIÓN*\n\n⚠️ *Atención Team:* Fallo detectado en el entorno de *PRODUCCIÓN* de Reval (Admin o Portal del Cliente)."}' \
           ${{ secrets.SLACK_WEBHOOK_URL }}
 
   theme-storefront-tests:
@@ -110,9 +110,9 @@ jobs:
           path: playwright-report/
           retention-days: 30
 
-      - name: Notify Slack on Theme Failure
+      - name: Notify Slack on Storefront Failure (The Wellness Project)
         if: failure()
         run: |
           curl -X POST -H 'Content-type: application/json' \
-          --data '{"text": "🚨 *ALERTA DE STOREFRONT - THEME PRODUCTIVO*\n\n⚠️ *Atención Angel-Claudio:* Fallo detectado en la tienda online productiva (*www.thewellnessproject.com.ar*).\n\n📌 *Módulos que pudieron haber fallado:*\n• Home & Scroll\n• Buscador\n• Catálogo\n• PDP / Suscripción / Compra Única\n• Carrito & Checkout\n• Login & Políticas"}' \
-          ${{ secrets.SLACK_WEBHOOK_URL }}
+          --data '{"text": "🚨 *ALERTA DE STOREFRONT - THE WELLNESS PROJECT*\n\n⚠️ *Atención Team TWP:* Fallo detectado en la tienda online productiva (*www.thewellnessproject.com.ar*).\n\n📌 *Módulos evaluados:*\n• Home & Scroll\n• Buscador en Vivo\n• Catálogo\n• PDP / Suscripción / Compra Única\n• Carrito & Checkout\n• Login & Políticas"}' \
+          ${{ secrets.SLACK_WEBHOOK_TWP_STOREFRONT }}
