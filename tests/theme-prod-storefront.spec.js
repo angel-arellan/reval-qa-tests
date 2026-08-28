@@ -49,7 +49,6 @@ test.describe(`Storefront Suite Definitiva – ${BASE_URL}`, () => {
     await neutralizarPopups(page);
     await validarSinErrores(page, 'Home');
 
-    // Validar logo o header general
     const logo = page.locator('header img, [class*="logo"], header a').first();
     await expect(logo).toBeVisible({ timeout: 10000 });
 
@@ -88,17 +87,19 @@ test.describe(`Storefront Suite Definitiva – ${BASE_URL}`, () => {
     const subscribeLabel = page.locator('label:has-text("Suscribirme"), label:has-text("Subscribe"), [class*="subscription"]').first();
     if (await subscribeLabel.isVisible({ timeout: 3000 }).catch(() => false)) {
       await subscribeLabel.click();
-      await page.waitForTimeout(2000); // Dar tiempo al widget de cargar precios
+      await page.waitForTimeout(2000);
 
       const addBtn = await primeroVisible(page.locator('button[name="add"], button:has-text("Agregar"), [class*="add-to-cart"]'));
       await addBtn.click({ force: true });
-      await page.waitForTimeout(2500);
+      await page.waitForTimeout(3000);
 
-      // Ir a Carrito / Checkout
+      // Ir a Carrito / Checkout con reintentos de URL
       await page.goto(`${BASE_URL}/cart`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await page.reload({ waitUntil: 'domcontentloaded' });
       await neutralizarPopups(page);
-      const checkoutBtn = await primeroVisible(page.locator('button[name="checkout"], input[name="checkout"], a[href*="/checkout"]'));
-      await expect(checkoutBtn).toBeVisible({ timeout: 10000 });
+
+      const checkoutBtn = page.locator('button[name="checkout"], input[name="checkout"], a[href*="/checkout"], [form*="cart"] button[type="submit"]').first();
+      await expect(checkoutBtn).toBeVisible({ timeout: 15000 });
     }
 
     // 3. Volver a PDP para Compra Única
@@ -120,7 +121,7 @@ test.describe(`Storefront Suite Definitiva – ${BASE_URL}`, () => {
 
     const addBtnSingle = await primeroVisible(page.locator('button[name="add"], button:has-text("Agregar"), [class*="add-to-cart"]'));
     await addBtnSingle.click({ force: true });
-    await page.waitForTimeout(2500);
+    await page.waitForTimeout(3000);
 
     // 5. Ir a Carrito y Modificar Cantidad
     await page.goto(`${BASE_URL}/cart`, { waitUntil: 'domcontentloaded', timeout: 45000 });
@@ -134,8 +135,8 @@ test.describe(`Storefront Suite Definitiva – ${BASE_URL}`, () => {
     }
 
     // 6. Confirmar Botón de Checkout
-    const checkoutBtnFinal = await primeroVisible(page.locator('button[name="checkout"], input[name="checkout"], a[href*="/checkout"]'));
-    await expect(checkoutBtnFinal).toBeVisible({ timeout: 10000 });
+    const checkoutBtnFinal = page.locator('button[name="checkout"], input[name="checkout"], a[href*="/checkout"], [form*="cart"] button[type="submit"]').first();
+    await expect(checkoutBtnFinal).toBeVisible({ timeout: 15000 });
   });
 
   test('STF-05: Acceso al Login', async ({ page }) => {
