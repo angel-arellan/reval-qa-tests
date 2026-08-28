@@ -114,5 +114,5 @@ jobs:
         if: failure()
         run: |
           curl -X POST -H 'Content-type: application/json' \
-          --data '{"text": "🚨 *ALERTA DE STOREFRONT - THE WELLNESS PROJECT*\n\n⚠️ *Atención Team TWP:* Fallo detectado en la tienda online productiva (*www.thewellnessproject.com.ar*).\n\n📌 *Módulos evaluados:*\n• Home & Scroll\n• Buscador en Vivo\n• Catálogo\n• PDP / Suscripción / Compra Única\n• Carrito & Checkout\n• Login & Políticas"}' \
+          --data '{"text": "🚨 *ALERTA DE STOREFRONT - THEME PRODUCTIVO*\n\n⚠️ *Atención Angel-Claudio:* Fallo detectado en la tienda online productiva (*www.thewellnessproject.com.ar*).\n\n📌 *Módulos que pudieron haber fallado:*\n• Home & Scroll\n• Buscador\n• Catálogo\n• PDP / Suscripción / Compra Única\n• Carrito & Checkout\n• Login & Políticas"}' \
           ${{ secrets.SLACK_WEBHOOK_TWP_STOREFRONT }}
