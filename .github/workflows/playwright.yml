@@ -40,7 +40,7 @@ jobs:
         if: failure()
         run: |
           curl -X POST -H 'Content-type: application/json' \
-          --data '{"text": "🚨 *ALERTA DE REGRESIÓN - STAGING*\n\n⚠️ *Atención Angel-Claudio:* Fallo detectado en el entorno de *STAGING* (Admin o Portal del Cliente).\n\n📌 *Algún módulo de estos pudo haber fallado:*\n• Dashboard\n• Suscripciones\n• Clientes\n• Pedidos\n• Planes\n• Productos\n• Sorpresas\n• Herramientas\n• Configuración\n• Portal de cliente"}' \
+          --data '{"text": "🚨 *ALERTA DE REGRESIÓN - STAGING*\n\n⚠️ *Atención Angel-Claudio:* Fallo detectado en el entorno de *STAGING* (Admin o Portal del Cliente)."}' \
           ${{ secrets.SLACK_WEBHOOK_URL }}
 
   production-tests:
@@ -77,5 +77,42 @@ jobs:
         if: failure()
         run: |
           curl -X POST -H 'Content-type: application/json' \
-          --data '{"text": "🚨 *ALERTA DE REGRESIÓN - PRODUCCIÓN*\n\n⚠️ *Atención Angel-Claudio:* Fallo detectado en el entorno de *PRODUCCIÓN* (Admin o Portal del Cliente).\n\n📌 *Algún módulo de estos pudo haber fallado:*\n• Dashboard\n• Suscripciones\n• Clientes\n• Pedidos\n• Planes\n• Productos\n• Sorpresas\n• Herramientas\n• Configuración\n• Portal de cliente"}' \
+          --data '{"text": "🚨 *ALERTA DE REGRESIÓN - PRODUCCIÓN*\n\n⚠️ *Atención Angel-Claudio:* Fallo detectado en el entorno de *PRODUCCIÓN* (Admin o Portal del Cliente)."}' \
+          ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  theme-storefront-tests:
+    name: Storefront Theme Tests
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
+      - name: Run Theme Storefront Tests
+        id: run_theme_tests
+        run: npx playwright test tests/theme-prod-storefront.spec.js --reporter=html
+
+      - name: Upload Storefront HTML Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-storefront
+          path: playwright-report/
+          retention-days: 30
+
+      - name: Notify Slack on Theme Failure
+        if: failure()
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+          --data '{"text": "🚨 *ALERTA DE STOREFRONT - THEME PRODUCTIVO*\n\n⚠️ *Atención Angel-Claudio:* Fallo detectado en la tienda online productiva (*www.thewellnessproject.com.ar*).\n\n📌 *Módulos que pudieron haber fallado:*\n• Home & Scroll\n• Buscador\n• Catálogo\n• PDP / Suscripción / Compra Única\n• Carrito & Checkout\n• Login & Políticas"}' \
           ${{ secrets.SLACK_WEBHOOK_URL }}
