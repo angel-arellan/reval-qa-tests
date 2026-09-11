@@ -16,7 +16,9 @@ async function neutralizarPopups(page) {
       await page.evaluate(() => {
         const bloqueantes = document.querySelectorAll(
           '[id*="klaviyo"], [class*="newsletter"], [id*="shopify-section-popup"], [class*="cookie"], [id*="cookie"],' +
-          '[id*="alia"], [class*="alia"], [role="dialog"][aria-modal="true"], [data-kl-scroll-locking-modal]'
+          '[id*="alia"], [class*="alia"], [role="dialog"][aria-modal="true"], [data-kl-scroll-locking-modal],' +
+          '[id*="chat-widget"], [class*="chat-widget"], [id*="chat-launcher"], [class*="chat-launcher"],' +
+          '[id*="gorgias-chat"], [id*="tidio"], [id*="intercom"], [class*="intercom"], iframe[title*="chat" i]'
         );
         bloqueantes.forEach(el => el.remove());
       });
@@ -287,6 +289,10 @@ for (const site of sites) {
 
     test(`${site.id}-04: PDP, Carrito y Checkout - Flujo Completo`, async ({ page }) => {
       test.skip(!!site.knownProductionBug, site.knownProductionBug);
+      // Flujo largo (PDP + variante + carrito + subir/bajar cantidad + checkout, con varias
+      // limpiezas de popups): puede acercarse al timeout global de 60s. Se extiende solo acá,
+      // sin tocar playwright.config.js (usado también por los tests de Reval y Wellness Project).
+      test.setTimeout(120000);
 
       await agregarProductoAlCarrito(page, site, BASE_URL);
 
