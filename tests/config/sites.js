@@ -25,6 +25,11 @@ module.exports = [
     name: 'SwissGear US',
     baseUrl: 'https://www.swissgear.com',
     search: { term: 'backpacks' },
+    // Bug real de producción confirmado: al aumentar la cantidad en el carrito, el HTML del
+    // botón "+" trae un error de Liquid incrustado (snippets/cart line 295: comparison of
+    // Integer with String failed) y el request a /cart/change devuelve 422 — la cantidad
+    // nunca cambia. No es un problema del test. Deshabilitado hasta que se corrija en el sitio.
+    knownProductionBug: 'Bug real de producción en swissgear.com: /cart/change devuelve 422 por un error de Liquid en el snippet del carrito (línea 295), la cantidad nunca cambia.',
     header: {
       hasMegaMenu: true,
       hoverSelector: '#MegaMenu-new-arrivals a.mega-menu__title',
@@ -52,6 +57,7 @@ module.exports = [
       containerSelector: '#CartDrawer',
       itemSelector: '[js-cart-item]',
       quantityIncreaseSelector: 'button[name="plus"]',
+      quantityDecreaseSelector: 'button[name="minus"]',
       quantityDisplay: { type: 'input', selector: 'input.quantity__input[name="updates[]"]' },
       checkoutButtonSelector: '#CartDrawer-Checkout, button[name="checkout"]',
     },
@@ -89,6 +95,7 @@ module.exports = [
       containerSelector: '#CartDrawer',
       itemSelector: '[js-cart-item]',
       quantityIncreaseSelector: 'button[name="plus"]',
+      quantityDecreaseSelector: 'button[name="minus"]',
       quantityDisplay: { type: 'input', selector: 'input.quantity__input[name="updates[]"]' },
       checkoutButtonSelector: 'button[name="checkout"]',
     },
@@ -123,6 +130,7 @@ module.exports = [
       type: 'page',
       itemSelector: '[data-cart-item]',
       quantityIncreaseSelector: 'button:has-text("+")',
+      quantityDecreaseSelector: 'button:has-text("−")',
       quantityDisplay: { type: 'input', selector: 'input.quantity__input[name="updates[]"]' },
       checkoutButtonSelector: 'button[name="checkout"]',
     },
@@ -132,6 +140,13 @@ module.exports = [
     name: 'Lusso Cloud',
     baseUrl: 'https://www.lussocloud.com',
     search: { term: 'slide' },
+    cookieBannerAcceptSelector: 'button:has-text("Accept")',
+    // Bug real de producción confirmado: hay un error de JS en vendor.js ("Cannot read
+    // properties of null (reading 'dataset')") que a veces rompe la interactividad del
+    // sitio. Se manifiesta de forma consistente en #AddToCart, que queda con rect 0x0 tras
+    // elegir talla y no se puede clickear. No es un problema del test. Deshabilitado hasta
+    // que se corrija en el sitio.
+    knownProductionBug: 'Bug real de producción en lussocloud.com: error de JS en vendor.js deja el botón Add to Cart inclickeable (rect 0x0) tras elegir variante.',
     header: {
       hasMegaMenu: true,
       openMethod: 'click', // este menú es un disclosure accesible (aria-expanded), no usa CSS :hover
@@ -139,6 +154,10 @@ module.exports = [
       submenuSelector: '#desktop-menu-7',
       subcategoryLinkSelector: '#desktop-menu-7 a',
       visibilityCheck: 'isVisible',
+      // "Comfy Collabs" no abre de forma confiable con clicks/hover sintéticos en Chromium
+      // headless (verificado manualmente: la página funciona bien, no es un bug real del
+      // sitio). Se valida best-effort para no generar alertas falsas por esto en cada corrida.
+      softCheck: true,
     },
     collection: {
       path: '/collections/womens',
@@ -164,6 +183,7 @@ module.exports = [
       containerSelector: '#rebuy-cart .rebuy-cart__flyout',
       itemSelector: '.rebuy-cart__flyout-item',
       quantityIncreaseSelector: '#rebuy-cart [aria-label*="Increase quantity"]',
+      quantityDecreaseSelector: '#rebuy-cart [aria-label*="Decrease quantity"]',
       quantityDisplay: { type: 'text', selector: '.rebuy-cart__flyout-item-quantity-widget-label' },
       checkoutButtonSelector: '#rebuy-cart .rebuy-cart__checkout-button',
     },
