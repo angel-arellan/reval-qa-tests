@@ -16,7 +16,21 @@ const POPUP_SELECTOR =
 // justo en el momento en que un click se dispara. En vez de depender de barridos puntuales
 // (que siempre pueden perder el timing exacto), se inyecta un MutationObserver que los
 // elimina apenas aparecen en el DOM, durante toda la vida de la página.
+// El widget de popup de starsandhoney.com (vendor "alia", visto en backend.alia-prod.com /
+// files.alia-prod.com) se re-inserta solo apenas se lo borra del DOM — más rápido de lo que
+// cualquier limpieza reactiva puede seguirle el ritmo. La forma confiable de sacarlo del
+// medio es bloquear la petición de red a su dominio para que el widget nunca llegue a cargar.
+const DOMINIOS_POPUP_BLOQUEADOS = [/alia-prod\.com/];
+
 test.beforeEach(async ({ page }) => {
+  await page.route('**/*', (route) => {
+    const url = route.request().url();
+    if (DOMINIOS_POPUP_BLOQUEADOS.some((patron) => patron.test(url))) {
+      return route.abort();
+    }
+    return route.continue();
+  });
+
   await page.addInitScript((selector) => {
     const kill = () => {
       document.querySelectorAll(selector).forEach((el) => el.remove());
@@ -72,13 +86,27 @@ async function neutralizarPopups(page, { skipEscape = false } = {}) {
 // tras un scroll) que pueden interceptar un click justo en el momento en que se dispara.
 // Se intenta el click normal primero; si Playwright lo bloquea por interceptación, se
 // limpian popups y se reintenta una vez más antes de darlo por fallado de verdad.
+// Algunos widgets de popup (ej. captura de email) vuelven a insertarse solos apenas se
+// borran del DOM — pelean contra la remoción. Clickear su botón real de cierre dispara el
+// handler propio del sitio (que suele marcar "ya cerrado" para esa sesión) y es mucho más
+// efectivo que borrar nodos que el sitio simplemente vuelve a crear.
+async function cerrarPopupSiExiste(page) {
+  const cerrar = page.locator('button, [role="button"]').filter({ hasText: /^close popup$/i });
+  if (await cerrar.first().isVisible({ timeout: 500 }).catch(() => false)) {
+    await cerrar.first().click({ timeout: 2000 }).catch(() => {});
+    await page.waitForTimeout(300);
+  }
+}
+
 async function clickResiliente(page, locator, options = {}) {
+  await cerrarPopupSiExiste(page);
   try {
     await locator.click({ timeout: 5000, ...options });
   } catch (e) {
     // skipEscape: acá casi siempre se está reintentando un click dentro de un drawer de
     // carrito ya abierto (+/-, checkout). Presionar Escape lo cerraría a él también, no
     // solo al popup que interceptó el click.
+    await cerrarPopupSiExiste(page);
     await neutralizarPopups(page, { skipEscape: true });
     await locator.click({ timeout: 5000, ...options });
   }
@@ -171,6 +199,19 @@ async function leerCantidad(scope, quantityDisplay) {
     return el.inputValue().catch(() => null);
   }
   return el.innerText().catch(() => null);
+}
+
+// El AJAX del carrito puede tardar más que una espera fija según el sitio; se hace polling
+// hasta ver un valor distinto al anterior en vez de asumir un tiempo fijo.
+async function esperarCambioCantidad(page, scope, quantityDisplay, valorAnterior, timeoutMs = 6000) {
+  const inicio = Date.now();
+  let actual = valorAnterior;
+  while (Date.now() - inicio < timeoutMs) {
+    actual = await leerCantidad(scope, quantityDisplay);
+    if (actual !== null && actual !== valorAnterior) return actual;
+    await page.waitForTimeout(300);
+  }
+  return actual;
 }
 
 // Llega a un PDP real (fijo o vía búsqueda), selecciona variante/cantidad si existen,
@@ -379,10 +420,8 @@ for (const site of sites) {
         const incBtn = item.locator(site.cart.quantityIncreaseSelector).first();
         if (await incBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
           await clickResiliente(page, incBtn);
-          await page.waitForTimeout(2000);
-
-          const valorSubido = await leerCantidad(item, site.cart.quantityDisplay);
-          if (valorAntes !== null && valorSubido !== null) {
+          const valorSubido = await esperarCambioCantidad(page, item, site.cart.quantityDisplay, valorAntes);
+          if (valorAntes !== null) {
             expect(valorSubido, `La cantidad no subió en el carrito de ${site.name}`).not.toBe(valorAntes);
           }
 
@@ -390,10 +429,8 @@ for (const site of sites) {
             const decBtn = item.locator(site.cart.quantityDecreaseSelector).first();
             if (await decBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
               await clickResiliente(page, decBtn);
-              await page.waitForTimeout(2000);
-
-              const valorBajado = await leerCantidad(item, site.cart.quantityDisplay);
-              if (valorSubido !== null && valorBajado !== null) {
+              const valorBajado = await esperarCambioCantidad(page, item, site.cart.quantityDisplay, valorSubido);
+              if (valorSubido !== null) {
                 expect(valorBajado, `La cantidad no bajó en el carrito de ${site.name}`).not.toBe(valorSubido);
               }
             }
