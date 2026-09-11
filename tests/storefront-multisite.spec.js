@@ -6,24 +6,41 @@ test.use({
   viewport: { width: 1280, height: 720 }
 });
 
-async function neutralizarPopups(page) {
-  // Varios sitios muestran popups (newsletter, promos) con delay tras la carga o el scroll.
-  // Se hacen varias pasadas de limpieza en vez de una sola para no perderlos por timing.
-  for (let pasada = 0; pasada < 3; pasada++) {
-    await page.waitForTimeout(1000);
-    try {
+const POPUP_SELECTOR =
+  '[id*="klaviyo"], [class*="newsletter"], [id*="shopify-section-popup"], [class*="cookie"], [id*="cookie"],' +
+  '[id*="alia"], [class*="alia"], [role="dialog"][aria-modal="true"], [data-kl-scroll-locking-modal],' +
+  '[id*="chat-widget"], [class*="chat-widget"], [id*="chat-launcher"], [class*="chat-launcher"],' +
+  '[id*="gorgias-chat"], [id*="tidio"], [id*="intercom"], [class*="intercom"], iframe[title*="chat" i]';
+
+// Varios sitios muestran popups (newsletter, promos) con delay tras la carga o el scroll,
+// justo en el momento en que un click se dispara. En vez de depender de barridos puntuales
+// (que siempre pueden perder el timing exacto), se inyecta un MutationObserver que los
+// elimina apenas aparecen en el DOM, durante toda la vida de la página.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript((selector) => {
+    const kill = () => document.querySelectorAll(selector).forEach((el) => el.remove());
+    new MutationObserver(kill).observe(document.documentElement, { childList: true, subtree: true });
+    kill();
+  }, POPUP_SELECTOR);
+});
+
+async function neutralizarPopups(page, { skipEscape = false } = {}) {
+  // El MutationObserver inyectado ya limpia continuamente; esto es solo un barrido puntual
+  // extra (por ejemplo tras un scroll que puede activar algo fuera del subtree observado).
+  //
+  // skipEscape: un carrito tipo drawer (ej. #CartDrawer) casi siempre escucha Escape para
+  // cerrarse a sí mismo. Si esta función se llama mientras el drawer está abierto (carrito,
+  // checkout), presionar Escape lo cierra y el botón que se busca a continuación deja de
+  // existir — hay que omitir esa tecla en esos contextos.
+  try {
+    if (!skipEscape) {
       await page.keyboard.press('Escape');
-      await page.evaluate(() => {
-        const bloqueantes = document.querySelectorAll(
-          '[id*="klaviyo"], [class*="newsletter"], [id*="shopify-section-popup"], [class*="cookie"], [id*="cookie"],' +
-          '[id*="alia"], [class*="alia"], [role="dialog"][aria-modal="true"], [data-kl-scroll-locking-modal],' +
-          '[id*="chat-widget"], [class*="chat-widget"], [id*="chat-launcher"], [class*="chat-launcher"],' +
-          '[id*="gorgias-chat"], [id*="tidio"], [id*="intercom"], [class*="intercom"], iframe[title*="chat" i]'
-        );
-        bloqueantes.forEach(el => el.remove());
-      });
-    } catch (e) {}
-  }
+    }
+    await page.evaluate((selector) => {
+      document.querySelectorAll(selector).forEach((el) => el.remove());
+    }, POPUP_SELECTOR);
+  } catch (e) {}
+  await page.waitForTimeout(500);
 }
 
 // Varios sitios disparan popups con delay (aparecen unos segundos después de la carga o
@@ -34,7 +51,10 @@ async function clickResiliente(page, locator, options = {}) {
   try {
     await locator.click({ timeout: 5000, ...options });
   } catch (e) {
-    await neutralizarPopups(page);
+    // skipEscape: acá casi siempre se está reintentando un click dentro de un drawer de
+    // carrito ya abierto (+/-, checkout). Presionar Escape lo cerraría a él también, no
+    // solo al popup que interceptó el click.
+    await neutralizarPopups(page, { skipEscape: true });
     await locator.click({ timeout: 5000, ...options });
   }
 }
@@ -352,9 +372,14 @@ for (const site of sites) {
       // de Playwright, y si el carrusel se mueve justo en ese instante (layout shift) el
       // click cae en la posición vieja y no acierta al botón.
       await page.waitForTimeout(1000);
-      await neutralizarPopups(page);
+      // skipEscape: el drawer del carrito ya está abierto acá — Escape lo cerraría antes
+      // de poder buscar el botón de checkout (causa real de un cuelgue visto en CI).
+      await neutralizarPopups(page, { skipEscape: true });
       const checkoutBtn = await primeroVisible(cartRoot.locator(site.cart.checkoutButtonSelector));
-      await checkoutBtn.scrollIntoViewIfNeeded().catch(() => {});
+      // Falla rápido y con mensaje claro si el carrito no está (en vez de colgarse sin
+      // timeout hasta el límite global del test).
+      await expect(checkoutBtn, `No se encontró el botón de checkout en el carrito de ${site.name}`).toBeVisible({ timeout: 8000 });
+      await checkoutBtn.scrollIntoViewIfNeeded({ timeout: 8000 }).catch(() => {});
       await clickResiliente(page, checkoutBtn);
       await page.waitForURL(/checkout/, { timeout: 20000 }).catch(() => null);
 
