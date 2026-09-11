@@ -10,7 +10,18 @@ const POPUP_SELECTOR =
   '[id*="klaviyo"], [class*="newsletter"], [id*="shopify-section-popup"], [class*="cookie"], [id*="cookie"],' +
   '[id*="alia"], [class*="alia"], [role="dialog"][aria-modal="true"], [data-kl-scroll-locking-modal],' +
   '[id*="chat-widget"], [class*="chat-widget"], [id*="chat-launcher"], [class*="chat-launcher"],' +
-  '[id*="gorgias-chat"], [id*="tidio"], [id*="intercom"], [class*="intercom"], iframe[title*="chat" i]';
+  '[id*="gorgias-chat"], [id*="tidio"], [id*="intercom"], [class*="intercom"], iframe[title*="chat" i],' +
+  '[id*="onetrust"], [class*="onetrust"], [id*="cookiebot"], [class*="cookiebot"], .modal-backdrop,' +
+  'pandectes-cmp, [aria-label="Cookie consent" i]';
+// pandectes-cmp: visto SOLO en GitHub Actions (nunca en local) — el consent management
+// platform "Pandectes" muestra este banner según geolocalización de la IP, y GitHub Actions
+// corre desde datacenters distintos a donde se probó en local. Confirmado en un run real de
+// SwissGear CA: <pandectes-cmp role="region" aria-label="Cookie consent"> interceptando el
+// click del checkout.
+// Deliberadamente NO se incluye un wildcard genérico tipo [class*="popup"]: ninguno de los
+// carritos/drawers configurados hoy usa esa palabra en su clase, pero a medida que se sumen
+// más tiendas (con temas distintos) un patrón tan amplio puede terminar ocultando el drawer
+// real de un carrito nuevo en vez de un popup. Mejor sumar el vendor puntual cuando aparezca.
 
 // Varios sitios muestran popups (newsletter, promos) con delay tras la carga o el scroll,
 // justo en el momento en que un click se dispara. En vez de depender de barridos puntuales
@@ -30,6 +41,19 @@ test.beforeEach(async ({ page }) => {
     }
     return route.continue();
   });
+
+  // Defensa adicional vía CSS puro: un <style> se aplica en cuanto el motor lo parsea, sin
+  // esperar a que corra JS ante cada mutación del DOM — cubre la ventana más temprana (el
+  // primer frame) donde un overlay recién insertado puede interceptar un click antes de que
+  // el MutationObserver de abajo llegue a reaccionar. Se usa addInitScript (no addStyleTag)
+  // para que el <style> se re-inyecte en CADA navegación, no solo en la página actual.
+  await page.addInitScript((selector) => {
+    // document.documentElement ya existe apenas se crea el documento (antes que <head>),
+    // así que se cuelga ahí directamente en vez de esperar un evento que llega más tarde.
+    const estilo = document.createElement('style');
+    estilo.textContent = `${selector} { display: none !important; pointer-events: none !important; }`;
+    document.documentElement.appendChild(estilo);
+  }, POPUP_SELECTOR);
 
   await page.addInitScript((selector) => {
     const kill = () => {
@@ -99,17 +123,28 @@ async function cerrarPopupSiExiste(page) {
 }
 
 async function clickResiliente(page, locator, options = {}) {
-  await cerrarPopupSiExiste(page);
-  try {
-    await locator.click({ timeout: 5000, ...options });
-  } catch (e) {
-    // skipEscape: acá casi siempre se está reintentando un click dentro de un drawer de
-    // carrito ya abierto (+/-, checkout). Presionar Escape lo cerraría a él también, no
-    // solo al popup que interceptó el click.
+  const INTENTOS_MAX = 3;
+  let ultimoError;
+  for (let intento = 0; intento < INTENTOS_MAX; intento++) {
     await cerrarPopupSiExiste(page);
-    await neutralizarPopups(page, { skipEscape: true });
-    await locator.click({ timeout: 5000, ...options });
+    if (intento > 0) {
+      // skipEscape: acá casi siempre se está reintentando un click dentro de un drawer de
+      // carrito ya abierto (+/-, checkout). Presionar Escape lo cerraría a él también, no
+      // solo al popup que interceptó el click.
+      await neutralizarPopups(page, { skipEscape: true });
+    }
+    try {
+      // force solo en el último intento: un click real (sin force) es el que efectivamente
+      // dispara los listeners nativos del sitio: recurrir a force de entrada puede "acertar"
+      // visualmente sin que el handler de click del sitio llegue a correr.
+      const forzar = intento === INTENTOS_MAX - 1;
+      await locator.click({ timeout: 5000, force: forzar, ...options });
+      return;
+    } catch (e) {
+      ultimoError = e;
+    }
   }
+  throw ultimoError;
 }
 
 async function aceptarCookies(page, site) {
@@ -308,8 +343,9 @@ for (const site of sites) {
       await expect(logo).toBeVisible({ timeout: 10000 });
 
       await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }));
-      await page.waitForTimeout(1500);
 
+      // Sin timeout fijo: expect(...).toBeVisible ya hace polling hasta 5s por default,
+      // que cubre de sobra la animación del scroll suave.
       const footer = page.locator('footer, [role="contentinfo"]').first();
       await expect(footer).toBeVisible();
 
@@ -444,16 +480,12 @@ for (const site of sites) {
         const cantidadSubida = String((parseInt(valorAntes, 10) || 1) + 1);
         await input.fill(cantidadSubida);
         await input.dispatchEvent('change');
-        await page.waitForTimeout(2500);
-
-        const valorSubido = await leerCantidad(item, site.cart.quantityDisplay);
+        const valorSubido = await esperarCambioCantidad(page, item, site.cart.quantityDisplay, valorAntes);
         expect(valorSubido, `La cantidad no subió en el carrito de ${site.name}`).toBe(cantidadSubida);
 
         await input.fill(valorAntes);
         await input.dispatchEvent('change');
-        await page.waitForTimeout(2500);
-
-        const valorBajado = await leerCantidad(item, site.cart.quantityDisplay);
+        const valorBajado = await esperarCambioCantidad(page, item, site.cart.quantityDisplay, valorSubido);
         expect(valorBajado, `La cantidad no bajó en el carrito de ${site.name}`).toBe(valorAntes);
       } else if (site.cart.quantityIncreaseSelector) {
         const incBtn = item.locator(site.cart.quantityIncreaseSelector).first();
