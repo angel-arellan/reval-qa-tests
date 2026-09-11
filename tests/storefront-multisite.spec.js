@@ -18,9 +18,34 @@ const POPUP_SELECTOR =
 // elimina apenas aparecen en el DOM, durante toda la vida de la página.
 test.beforeEach(async ({ page }) => {
   await page.addInitScript((selector) => {
-    const kill = () => document.querySelectorAll(selector).forEach((el) => el.remove());
-    new MutationObserver(kill).observe(document.documentElement, { childList: true, subtree: true });
+    const kill = () => {
+      document.querySelectorAll(selector).forEach((el) => el.remove());
+      // Algunos popups (ej. captura de email) no usan ninguna clase/id reconocible, pero sí
+      // tienen un botón cuyo nombre accesible es "Close popup" — muchas veces ese nombre
+      // viene de un <span> de texto oculto (sr-only), no de un atributo aria-label literal,
+      // así que hay que comparar por texto (incluido el oculto) en vez de por selector CSS.
+      [...document.querySelectorAll('button, [role="button"]')]
+        .filter((btn) => {
+          const texto = (btn.textContent || '').trim().toLowerCase();
+          const ariaLabel = (btn.getAttribute('aria-label') || '').trim().toLowerCase();
+          return texto === 'close popup' || ariaLabel === 'close popup';
+        })
+        .forEach((btn) => {
+          const dialog = btn.closest('[role="dialog"], [class*="modal" i], [class*="popup" i]');
+          (dialog || btn.parentElement?.parentElement?.parentElement || btn).remove();
+        });
+    };
+    // childList detecta popups insertados de cero; attributes cubre los que ya existen
+    // ocultos en el HTML inicial y se revelan después con una clase/estilo (ej. "is-open").
+    // El setInterval es un respaldo final por si algún caso se escapa de ambos.
+    new MutationObserver(kill).observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'style', 'hidden', 'aria-hidden'],
+    });
     kill();
+    setInterval(kill, 1000);
   }, POPUP_SELECTOR);
 });
 
@@ -176,8 +201,18 @@ async function agregarProductoAlCarrito(page, site, BASE_URL) {
   }
 
   const addBtn = page.locator(site.pdp.addToCartSelector).first();
+  // Se registra el listener ANTES del click para no perder la respuesta por una
+  // condición de carrera. Casi todo tema Shopify pega a /cart/add(.js) via AJAX al
+  // agregar; esperar la respuesta real (en vez de un timeout fijo) evita navegar a
+  // /cart antes de que el server haya terminado de procesar el alta — la causa real
+  // de un "Your cart is empty" visto en CI con Stars + Honey. Si el sitio no usa ese
+  // endpoint (ej. un form POST clásico), simplemente no resuelve y se cae al timeout.
+  const addToCartResponse = page
+    .waitForResponse((resp) => /\/cart\/add(\.js)?(\?|$)/.test(resp.url()) && resp.request().method() === 'POST', { timeout: 10000 })
+    .catch(() => null);
   await addBtn.click({ force: true });
-  await page.waitForTimeout(3000);
+  await addToCartResponse;
+  await page.waitForTimeout(1000);
 
   if (site.cart.type === 'drawer') {
     const drawer = page.locator(site.cart.containerSelector).first();
