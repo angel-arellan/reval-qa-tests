@@ -319,7 +319,18 @@ async function agregarProductoAlCarrito(page, site, BASE_URL) {
 
   if (site.cart.type === 'drawer') {
     const drawer = page.locator(site.cart.containerSelector).first();
-    await expect(drawer, `El carrito no se abrió tras agregar en ${site.name}`).toBeVisible({ timeout: 10000 });
+    // Algunos temas modernos implementan el drawer como un custom element con
+    // `display: contents` en el host (ej. Ailu y Andi, Three Bird Nest) — el wrapper en sí
+    // no tiene bounding box aunque su contenido ya esté visible y poblado. En esos casos
+    // isVisible() del contenedor da falso negativo. Se acepta como señal válida de "el
+    // carrito abrió" que el contenedor sea visible O que ya haya aparecido el item dentro.
+    // .first() al final es necesario: cuando el contenedor SÍ tiene bounding box (la mayoría
+    // de los sitios) .or() sin esto devuelve la unión de AMBOS matches (contenedor + item),
+    // lo que viola el modo estricto de toBeVisible() al resolver a más de un elemento.
+    const abrio = site.cart.itemSelector
+      ? drawer.or(page.locator(site.cart.containerSelector).locator(site.cart.itemSelector).first()).first()
+      : drawer;
+    await expect(abrio, `El carrito no se abrió tras agregar en ${site.name}`).toBeVisible({ timeout: 10000 });
   } else {
     await page.goto(`${BASE_URL}/cart`, { waitUntil: 'domcontentloaded', timeout: 45000 });
     await aceptarCookies(page, site);
@@ -330,6 +341,12 @@ async function agregarProductoAlCarrito(page, site, BASE_URL) {
 
 for (const site of sites) {
   const BASE_URL = process.env[`STOREFRONT_URL_${site.id}`] || site.baseUrl;
+  // Por defecto se asume que el sitio es una tienda (los 4 sitios ya existentes no declaran
+  // este campo). Los sitios informativos/landing sin carrito (agregados a partir del batch de
+  // reconocimiento de 16 sitios) declaran `ecommerce: false` en sites.js: para esos no tiene
+  // sentido correr búsqueda/catálogo/PDP-carrito/login/políticas (son paths de e-commerce que
+  // no existen en un sitio sin tienda), así que solo corren Home+Header y el chequeo mobile.
+  const esEcommerce = site.ecommerce !== false;
 
   test.describe(`Storefront Multisite – ${site.name} (${BASE_URL})`, () => {
 
@@ -339,7 +356,10 @@ for (const site of sites) {
       await neutralizarPopups(page);
       await validarSinErrores(page, 'Home');
 
-      const logo = page.locator('[class*="logo"], header a').first();
+      // Se usa primeroVisible() en vez de .first(): algunos sitios (ej. Ena Sport) tienen un
+      // botón de búsqueda mobile oculto en desktop (sm:hidden) que aparece antes que el logo
+      // real en el orden del DOM — .first() sin filtrar visibilidad agarraba ese nodo oculto.
+      const logo = await primeroVisible(page.locator('[class*="logo"], header a'));
       await expect(logo).toBeVisible({ timeout: 10000 });
 
       await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }));
@@ -349,7 +369,7 @@ for (const site of sites) {
       const footer = page.locator('footer, [role="contentinfo"]').first();
       await expect(footer).toBeVisible();
 
-      if (site.header.hasMegaMenu) {
+      if (site.header?.hasMegaMenu) {
         await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
         await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
 
@@ -399,6 +419,8 @@ for (const site of sites) {
       }
     });
 
+    if (esEcommerce) {
+
     test(`${site.id}-02: Buscador - Búsqueda en Vivo`, async ({ page }) => {
       await page.goto(`${BASE_URL}/search?q=${site.search.term}`, { waitUntil: 'domcontentloaded', timeout: 45000 });
       await aceptarCookies(page, site);
@@ -433,7 +455,13 @@ for (const site of sites) {
           }
         }
 
-        await neutralizarPopups(page);
+        // skipEscape: en sitios donde el toggle abre un <details>/<summary> nativo o un
+        // drawer de filtros (ej. Adepac), Escape lo cierra de nuevo -- el label del filtro
+        // sigue "attached" al DOM (por eso el waitFor de abajo no lo detecta) pero deja de
+        // estar realmente en pantalla, y el click con force:true termina cayendo sobre lo
+        // que haya debajo (ej. una card de producto), navegando a un lugar equivocado en vez
+        // de aplicar el filtro.
+        await neutralizarPopups(page, { skipEscape: true });
 
         const filterLabel = page.locator(site.collection.filters.labelSelector).first();
         await filterLabel.waitFor({ state: 'attached', timeout: 5000 });
@@ -546,6 +574,40 @@ for (const site of sites) {
       await page.goto(`${BASE_URL}/policies/privacy-policy`, { waitUntil: 'domcontentloaded', timeout: 45000 });
       await neutralizarPopups(page);
       await validarSinErrores(page, 'Privacidad');
+    });
+
+    } // fin if (esEcommerce)
+
+    test(`${site.id}-07: Responsive Mobile - Home sin overflow horizontal`, async ({ page }) => {
+      // Viewport de un iPhone chico a propósito: si algo rompe el layout, suele notarse
+      // primero en el ancho más angosto realista, no en un mobile grande.
+      await page.setViewportSize({ width: 375, height: 812 });
+
+      await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await aceptarCookies(page, site);
+      await neutralizarPopups(page);
+      await validarSinErrores(page, 'Home Mobile');
+
+      // Overflow horizontal es el síntoma más común y más visible de un layout responsive
+      // roto (un elemento con un ancho fijo, una imagen sin max-width, etc.). Se tolera un
+      // margen chico (scrollbars, redondeos de subpíxel) en vez de exigir 0 exacto.
+      const overflowPx = await page.evaluate(
+        () => document.documentElement.scrollWidth - window.innerWidth
+      );
+      expect(
+        overflowPx,
+        `Overflow horizontal de ${overflowPx}px detectado en mobile en ${site.name} (algún elemento se desborda del viewport)`
+      ).toBeLessThanOrEqual(4);
+
+      // primeroVisible() en vez de .first(): algunos sitios tienen secciones de header
+      // ocultas en mobile (ej. Ena Sport, cuya mega nav de desktop matchea primero por el
+      // selector genérico pero tiene display:none en este viewport).
+      const header = await primeroVisible(page.locator('header, [class*="header"]'));
+      await expect(header, `Header no visible en mobile en ${site.name}`).toBeVisible({ timeout: 10000 });
+
+      await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' }));
+      const footer = page.locator('footer, [role="contentinfo"]').first();
+      await expect(footer, `Footer no visible en mobile en ${site.name}`).toBeVisible();
     });
 
   });

@@ -18,6 +18,11 @@
 // - pdp: página de producto a usar. Si `path` es null, se llega vía búsqueda + click en el
 //   primer resultado (útil cuando no hay un producto "ancla" estable con variantes).
 // - cart: tipo de carrito (drawer nativo del theme, drawer de una app tipo Rebuy, o página).
+// - ecommerce: false (opcional, default true si se omite) — para sitios informativos/landing
+//   sin carrito de compras real. Con esto alcanza: el spec salta automáticamente búsqueda,
+//   catálogo, PDP+carrito+checkout, login y políticas (son paths de e-commerce que no existen
+//   en un sitio sin tienda) y solo corre Home+Header y el chequeo responsive de mobile.
+//   No hace falta completar `search`, `collection`, `pdp` ni `cart` en ese caso.
 
 module.exports = [
   {
@@ -192,6 +197,163 @@ module.exports = [
       quantityDecreaseSelector: '#rebuy-cart [aria-label*="Decrease quantity"]',
       quantityDisplay: { type: 'text', selector: '.rebuy-cart__flyout-item-quantity-widget-label' },
       checkoutButtonSelector: '#rebuy-cart .rebuy-cart__checkout-button',
+    },
+  },
+  {
+    id: 'MARMOT_AR',
+    name: 'Marmot Argentina',
+    baseUrl: 'https://marmot.com.ar',
+    search: { term: 'campera' },
+    header: {
+      hasMegaMenu: true,
+      hoverSelector: 'summary.hdt-header__menu-item[data-url="/collections/hombre"]',
+      submenuSelector: 'details:has(summary[data-url="/collections/hombre"]) .hdt-mega-menu__content',
+      subcategoryLinkSelector: 'details:has(summary[data-url="/collections/hombre"]) a[href="/collections/hombre/Camperas"]',
+      visibilityCheck: 'isVisible',
+    },
+    collection: {
+      path: '/collections/hombre/Camperas',
+      filters: {
+        enabled: true,
+        toggleSelector: 'button.hdt-facets__open',
+        labelSelector: 'label[for="Filter--filter.v.option.talle-2"]',
+      },
+    },
+    pdp: {
+      path: '/products/buzo-rocklin-repreve-marmot-hombre',
+      variantType: 'radio-label',
+      variantInputSelector: '.hdt-product-form__values input[type="radio"]',
+      quantitySelector: null,
+      addToCartSelector: 'button[name="add"]',
+    },
+    cart: {
+      type: 'drawer',
+      containerSelector: '#CartDrawer',
+      itemSelector: '.hdt-cart-item',
+      quantityIncreaseSelector: 'button.hdt-quantity__button[name="plus"]',
+      quantityDecreaseSelector: 'button.hdt-quantity__button[name="minus"]',
+      quantityDisplay: { type: 'input', selector: 'input.hdt-quantity__input' },
+      checkoutButtonSelector: '#CartDrawer-Checkout, button[name="checkout"]',
+    },
+  },
+  {
+    id: 'ANSILTA_COM',
+    name: 'Ansilta',
+    baseUrl: 'https://ansilta.com',
+    search: { term: 'campera' },
+    header: {
+      hasMegaMenu: true,
+      hoverSelector: 'summary[data-link="/collections/hombre"]',
+      submenuSelector: 'details:has(summary[data-link="/collections/hombre"]) .mega-menu',
+      subcategoryLinkSelector: '.mega-menu a[href="/collections/hombre/Camperas"]',
+      visibilityCheck: 'isVisible',
+    },
+    collection: {
+      path: '/collections/hombre',
+      filters: {
+        enabled: true,
+        toggleSelector: 'details[data-index="vertical-filter.v.option.size"] summary',
+        labelSelector: 'label[for="vertical-filter.v.option.size-1"]',
+      },
+    },
+    pdp: {
+      path: '/products/campera-aconcagua-4-hombre',
+      variantType: 'radio-label',
+      variantInputSelector: 'fieldset.product-form__input--button input[type="radio"]',
+      quantitySelector: null,
+      addToCartSelector: 'button.product-form__submit[name="add"]',
+    },
+    cart: {
+      type: 'drawer',
+      containerSelector: '#CartDrawer',
+      itemSelector: '.cart-item',
+      quantityIncreaseSelector: 'button[name="plus"]',
+      quantityDecreaseSelector: 'button[name="minus"]',
+      quantityDisplay: { type: 'input', selector: 'input.quantity__input[name="updates[]"]' },
+      checkoutButtonSelector: 'button[name="checkout"]',
+    },
+  },
+  {
+    id: 'ENASPORT',
+    name: 'Ena Sport',
+    baseUrl: 'https://enasport.com',
+    search: { term: 'proteina' },
+    header: {
+      hasMegaMenu: true,
+      openMethod: 'click',
+      hoverSelector: 'summary[data-url="/collections/todos-los-productos"]',
+      submenuSelector: '#mega-menu-mega_menu_4Hhege',
+      subcategoryLinkSelector: '#mega-menu-mega_menu_4Hhege a[href="/collections/proteinas"]',
+      visibilityCheck: 'isVisible',
+    },
+    collection: {
+      path: '/collections/proteinas',
+      filters: {
+        enabled: true,
+        toggleSelector: '#accordion-filter-v-option-sabor:visible summary',
+        // El sitio duplica el mismo id de sección (drawer mobile + sidebar desktop) y el
+        // sufijo numérico de sección cambia con el tiempo, así que en vez de un id exacto se
+        // matchea por el final del atributo `for` (evita el falso positivo de "chocolate-mousse").
+        labelSelector: 'label[for$="filter-v-option-sabor-chocolate"]',
+      },
+    },
+    pdp: {
+      path: '/products/100-whey-protein',
+      variantType: 'radio-label',
+      variantInputSelector: 'label.thumbnail-swatch',
+      variantIsLabel: true,
+      quantitySelector: null,
+      addToCartSelector: 'buy-buttons button[type="submit"]',
+    },
+    cart: {
+      type: 'page',
+      itemSelector: 'tr:has(line-item)',
+      quantityIncreaseSelector: null,
+      quantityDecreaseSelector: null,
+      quantityChangeMethod: 'fill',
+      quantityDisplay: { type: 'input', selector: 'td.sm\\:table-cell input.quantity-input' },
+      checkoutButtonSelector: 'button[name="checkout"]',
+    },
+  },
+  {
+    id: 'ADEPAC',
+    name: 'Adepac',
+    baseUrl: 'https://tienda.adepac.cl',
+    search: { term: 'cinta' },
+    // Bug real de producción confirmado: el botón "Comprar" de CADA PDP probada (4/4) tiene un
+    // onclick con window.open() hacia un listado de MercadoLibre del vendedor + "return false",
+    // que cancela el submit real del form a /cart/add. El carrito de Shopify existe pero no es
+    // alcanzable desde la UI real del sitio. No es un problema del test.
+    knownProductionBug: 'Bug real de producción en tienda.adepac.cl: el botón "Comprar" de la PDP tiene un onclick con window.open() hacia un listado de MercadoLibre + return false, que cancela el submit del form a /cart/add. Confirmado en 4 productos distintos.',
+    header: {
+      hasMegaMenu: true,
+      hoverSelector: 'a.header__menu-item[href="/collections/adhesivos"]',
+      submenuSelector: 'li:has(a.header__menu-item[href="/collections/adhesivos"]) ul.header__submenu',
+      subcategoryLinkSelector: 'li:has(a.header__menu-item[href="/collections/adhesivos"]) ul.header__submenu a[href="/collections/la-gotita%C2%AE"]',
+      visibilityCheck: 'isVisible',
+    },
+    collection: {
+      path: '/collections/promociones',
+      filters: {
+        enabled: true,
+        toggleSelector: 'summary[aria-controls="Facet-1-template--19597944651836__product-grid"]',
+        labelSelector: 'label[for="Filter-filter.v.availability-1"]',
+      },
+    },
+    pdp: {
+      path: '/products/python%C2%AE-cinta-multiuso-negra-48mm-x-9mts',
+      variantType: 'none',
+      variantInputSelector: null,
+      quantitySelector: null,
+      addToCartSelector: 'button[name="add"]',
+    },
+    cart: {
+      type: 'page',
+      itemSelector: '.cart-item',
+      quantityIncreaseSelector: 'button.quantity__button[name="plus"]',
+      quantityDecreaseSelector: 'button.quantity__button[name="minus"]',
+      quantityDisplay: { type: 'input', selector: 'input.quantity__input[name="updates[]"]' },
+      checkoutButtonSelector: 'button[name="checkout"]',
     },
   },
 ];
