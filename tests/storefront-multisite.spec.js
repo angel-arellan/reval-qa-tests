@@ -8,11 +8,11 @@ test.use({
 
 const POPUP_SELECTOR =
   '[id*="klaviyo"], [class*="newsletter"], [id*="shopify-section-popup"], [class*="cookie"], [id*="cookie"],' +
-  '[id*="alia"], [class*="alia"], [role="dialog"][aria-modal="true"], [data-kl-scroll-locking-modal],' +
+  '[id*="alia"], [class*="alia"], [role="dialog"][aria-modal="true"]:not([id*="facet" i]):not([class*="facet" i]):not([aria-label="Shopping cart" i]), [data-kl-scroll-locking-modal],' +
   '[id*="chat-widget"], [class*="chat-widget"], [id*="chat-launcher"], [class*="chat-launcher"],' +
   '[id*="gorgias-chat"], [id*="tidio"], [id*="intercom"], [class*="intercom"], iframe[title*="chat" i],' +
   '[id*="onetrust"], [class*="onetrust"], [id*="cookiebot"], [class*="cookiebot"], .modal-backdrop,' +
-  'pandectes-cmp, [aria-label="Cookie consent" i]';
+  'pandectes-cmp, [aria-label="Cookie consent" i], [id*="recart"]';
 // pandectes-cmp: visto SOLO en GitHub Actions (nunca en local) — el consent management
 // platform "Pandectes" muestra este banner según geolocalización de la IP, y GitHub Actions
 // corre desde datacenters distintos a donde se probó en local. Confirmado en un run real de
@@ -22,6 +22,21 @@ const POPUP_SELECTOR =
 // carritos/drawers configurados hoy usa esa palabra en su clase, pero a medida que se sumen
 // más tiendas (con temas distintos) un patrón tan amplio puede terminar ocultando el drawer
 // real de un carrito nuevo en vez de un popup. Mejor sumar el vendor puntual cuando aparezca.
+// :not([id*="facet" i]):not([class*="facet" i]) en el patrón de role="dialog": el panel
+// nativo de filtros de Shopify Search & Discovery (tema Dawn y derivados) se implementa como
+// <div id="FacetsModal-inner" role="dialog" aria-modal="true">, y la limpieza anti-popup lo
+// mataba apenas se abría (confirmado en sofiasarkany.com). "facet(s)" es un patrón propio de
+// ese componente de Shopify, no específico de un sitio, así que la exclusión es genérica.
+// :not([aria-label="Shopping cart" i]): el storefront headless custom de comfrt.com
+// (constructor "Bite") marca su propio drawer de carrito real con role="dialog"
+// aria-modal="true" aria-label="Shopping cart" (accesibilidad correcta, no es un popup) — sin
+// esta exclusión, la limpieza anti-popup lo ocultaba y lo eliminaba del DOM apenas se abría.
+// [id*="recart"]: la app "Recart" (SMS marketing/cart recovery) de comfrt.com inyecta
+// #recart-root y #recart-popup-root, dos <div> invisibles que después de interactuar con el
+// carrito (confirmado tras tocar +/- de cantidad) pasan a cubrir la pantalla por encima del
+// drawer y absorben el click siguiente (confirmado con document.elementFromPoint() sobre las
+// coordenadas del botón de Checkout). No se usa la clase "needsclick" (es de FastClick y
+// podría existir legítimamente en otros sitios), se apunta puntualmente al id del vendor.
 
 // Varios sitios muestran popups (newsletter, promos) con delay tras la carga o el scroll,
 // justo en el momento en que un click se dispara. En vez de depender de barridos puntuales
@@ -31,9 +46,50 @@ const POPUP_SELECTOR =
 // files.alia-prod.com) se re-inserta solo apenas se lo borra del DOM — más rápido de lo que
 // cualquier limpieza reactiva puede seguirle el ritmo. La forma confiable de sacarlo del
 // medio es bloquear la petición de red a su dominio para que el widget nunca llegue a cargar.
-const DOMINIOS_POPUP_BLOQUEADOS = [/alia-prod\.com/];
+// El popup "You've Got A Mystery Offer" de comfrt.com (vendor "Attentive", cdn.attn.tv /
+// <tienda>.attn.tv) aparece de forma probabilística (no en cada carga) como overlay a
+// pantalla completa con clases hasheadas del mismo storefront custom, sin ningún id/clase
+// reconocible por los patrones genéricos — mismo fix que alia-prod.com.
+const DOMINIOS_POPUP_BLOQUEADOS = [/alia-prod\.com/, /attn\.tv/];
 
-test.beforeEach(async ({ page }) => {
+// Algunos temas implementan su drawer de carrito REAL como un diálogo accesible nativo
+// (<div role="dialog" aria-modal="true">) — exactamente el mismo patrón de marcado que usan
+// los popups ilegítimos que POPUP_SELECTOR busca eliminar (confirmado en threebirdnest.com:
+// el wrapper real del carrito es role="dialog"[aria-modal="true"], y la limpieza genérica lo
+// ocultaba con display:none antes de que Playwright pudiera verlo abierto). Para no debilitar
+// la defensa genérica para todos los sitios, un sitio puede optar explícitamente
+// (`cart.drawerCollidesWithPopupSelector: true`) por excluir de esta limpieza cualquier
+// elemento que CONTENGA su propio `cart.containerSelector` real, sin tocar el comportamiento
+// para ningún sitio que no lo active.
+function popupSelectorParaSitio(site) {
+  if (site?.cart?.drawerCollidesWithPopupSelector && site.cart.containerSelector) {
+    const contenedor = site.cart.containerSelector;
+    // POPUP_SELECTOR es una lista separada por comas (varios selectores simples); encadenar
+    // ":not(...)" directo al final de un string con comas solo modificaría el ÚLTIMO
+    // selector de la lista, no todos. Se envuelve con :is(...) para agrupar la lista entera
+    // en un solo selector compuesto antes de negar.
+    // El contenedor real del carrito puede colisionar con POPUP_SELECTOR de dos formas
+    // distintas según el theme: siendo él mismo el elemento con role="dialog" (ej. Ailu y
+    // Andi, <cart-drawer id="cart-drawer" role="dialog" aria-modal="true">) o siendo un
+    // descendiente de un wrapper más externo que matchea el patrón (ej. Three Bird Nest,
+    // donde el contenido real vive DENTRO del <div role="dialog">). Se excluyen ambos casos.
+    return `:is(${POPUP_SELECTOR}):not(:is(${contenedor})):not(:has(${contenedor}))`;
+  }
+  return POPUP_SELECTOR;
+}
+
+function sitioDeTest(testInfo) {
+  const match = /^([A-Z0-9_]+)-\d+:/.exec(testInfo.title);
+  return match ? sites.find((s) => s.id === match[1]) || null : null;
+}
+
+test.beforeEach(async ({ page }, testInfo) => {
+  const popupSelector = popupSelectorParaSitio(sitioDeTest(testInfo));
+  // Se guarda en la propia instancia de Page (lado Node, no en el browser) para que
+  // neutralizarPopups() -- llamada desde decenas de puntos del spec sin acceso a `site` --
+  // pueda reutilizar el mismo selector ya resuelto sin tener que cambiar su firma.
+  page.__popupSelector = popupSelector;
+
   await page.route('**/*', (route) => {
     const url = route.request().url();
     if (DOMINIOS_POPUP_BLOQUEADOS.some((patron) => patron.test(url))) {
@@ -48,12 +104,25 @@ test.beforeEach(async ({ page }) => {
   // el MutationObserver de abajo llegue a reaccionar. Se usa addInitScript (no addStyleTag)
   // para que el <style> se re-inyecte en CADA navegación, no solo en la página actual.
   await page.addInitScript((selector) => {
-    // document.documentElement ya existe apenas se crea el documento (antes que <head>),
-    // así que se cuelga ahí directamente en vez de esperar un evento que llega más tarde.
-    const estilo = document.createElement('style');
-    estilo.textContent = `${selector} { display: none !important; pointer-events: none !important; }`;
-    document.documentElement.appendChild(estilo);
-  }, POPUP_SELECTOR);
+    // document.documentElement ya existe apenas se crea el documento (antes que <head>) en
+    // la gran mayoría de los sitios, así que se cuelga ahí directamente en vez de esperar un
+    // evento que llega más tarde. Pero en sitios que hidratan su theme de forma asíncrona con
+    // frameworks pesados (ej. rbxactive.com, con React) se vio en vivo que en el instante
+    // exacto en que corre este script document.documentElement puede ser null todavía — sin
+    // esta guarda, appendChild tira una excepción síncrona que aborta el resto del
+    // addInitScript en silencio, dejando TODA la limpieza anti-popup desactivada para esa
+    // carga de página. Se reintenta con setTimeout(0) hasta que exista.
+    const inyectar = () => {
+      if (!document.documentElement) {
+        setTimeout(inyectar, 0);
+        return;
+      }
+      const estilo = document.createElement('style');
+      estilo.textContent = `${selector} { display: none !important; pointer-events: none !important; }`;
+      document.documentElement.appendChild(estilo);
+    };
+    inyectar();
+  }, popupSelector);
 
   await page.addInitScript((selector) => {
     const kill = () => {
@@ -76,15 +145,24 @@ test.beforeEach(async ({ page }) => {
     // childList detecta popups insertados de cero; attributes cubre los que ya existen
     // ocultos en el HTML inicial y se revelan después con una clase/estilo (ej. "is-open").
     // El setInterval es un respaldo final por si algún caso se escapa de ambos.
-    new MutationObserver(kill).observe(document.documentElement, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['class', 'style', 'hidden', 'aria-hidden'],
-    });
-    kill();
-    setInterval(kill, 1000);
-  }, POPUP_SELECTOR);
+    // Misma guarda que el <style> de arriba: document.documentElement puede ser null en el
+    // instante exacto en que corre este script en sitios con hidratación asíncrona pesada.
+    const iniciar = () => {
+      if (!document.documentElement) {
+        setTimeout(iniciar, 0);
+        return;
+      }
+      new MutationObserver(kill).observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class', 'style', 'hidden', 'aria-hidden'],
+      });
+      kill();
+      setInterval(kill, 1000);
+    };
+    iniciar();
+  }, popupSelector);
 });
 
 async function neutralizarPopups(page, { skipEscape = false } = {}) {
@@ -101,7 +179,7 @@ async function neutralizarPopups(page, { skipEscape = false } = {}) {
     }
     await page.evaluate((selector) => {
       document.querySelectorAll(selector).forEach((el) => el.remove());
-    }, POPUP_SELECTOR);
+    }, page.__popupSelector || POPUP_SELECTOR);
   } catch (e) {}
   await page.waitForTimeout(500);
 }
@@ -310,11 +388,28 @@ async function agregarProductoAlCarrito(page, site, BASE_URL) {
   // /cart antes de que el server haya terminado de procesar el alta — la causa real
   // de un "Your cart is empty" visto en CI con Stars + Honey. Si el sitio no usa ese
   // endpoint (ej. un form POST clásico), simplemente no resuelve y se cae al timeout.
-  const addToCartResponse = page
-    .waitForResponse((resp) => /\/cart\/add(\.js)?(\?|$)/.test(resp.url()) && resp.request().method() === 'POST', { timeout: 10000 })
-    .catch(() => null);
+  const esperarRespuestaCartAdd = () =>
+    page
+      .waitForResponse((resp) => /\/cart\/add(\.js)?(\?|$)/.test(resp.url()) && resp.request().method() === 'POST', { timeout: 10000 })
+      .catch(() => null);
+
+  let addToCartResponse = esperarRespuestaCartAdd();
   await addBtn.click({ force: true });
-  await addToCartResponse;
+  let respuesta = await addToCartResponse;
+
+  // Algunos custom elements (ej. <buy-buttons> de Ailu y Andi) a veces no terminan de
+  // hidratar su listener de submit para cuando Playwright hace el primer click, sobre todo
+  // justo después de domcontentloaded — el resultado es que ese click no dispara ningún
+  // request real a /cart/add (confirmado con logging de red: 0 requests en la ventana de
+  // 10s). Reintentar una vez resuelve esto sin enmascarar un fallo real del sitio (si el
+  // segundo intento tampoco responde, se sigue cayendo al timeout normal de abajo).
+  // Gateado por sitio (`pdp.retryAddToCartClick`) para no arriesgar un doble-submit en
+  // temas con form POST clásico, donde la ausencia de respuesta AJAX es esperable.
+  if (!respuesta && site.pdp.retryAddToCartClick) {
+    addToCartResponse = esperarRespuestaCartAdd();
+    await addBtn.click({ force: true });
+    respuesta = await addToCartResponse;
+  }
   await page.waitForTimeout(1000);
 
   if (site.cart.type === 'drawer') {
@@ -366,7 +461,10 @@ for (const site of sites) {
 
       // Sin timeout fijo: expect(...).toBeVisible ya hace polling hasta 5s por default,
       // que cubre de sobra la animación del scroll suave.
-      const footer = page.locator('footer, [role="contentinfo"]').first();
+      // primeroVisible(): algunos sitios (ej. Ailu y Andi) renderizan más de un <footer> —
+      // plantillas internas ocultas de un custom element además del footer real — y .first()
+      // sin filtrar visibilidad agarraba siempre uno de los ocultos.
+      const footer = await primeroVisible(page.locator('footer, [role="contentinfo"]'));
       await expect(footer).toBeVisible();
 
       if (site.header?.hasMegaMenu) {
@@ -455,6 +553,20 @@ for (const site of sites) {
           }
         }
 
+        // Algunos paneles agrupan las opciones en acordeones colapsados (max-height: 0) —
+        // hay que expandir la sección puntual (ej. "Size" en RBX Active) antes de que el
+        // checkbox/label sea clickeable de verdad. Sin esto, Playwright puede reportar el
+        // label como "attached"/"visible" (falso positivo por clipping de un ancestro) pero
+        // el click nunca llega a marcar el checkbox. Opcional: si el sitio no lo declara, el
+        // comportamiento es idéntico al actual.
+        if (site.collection.filters.sectionToggleSelector) {
+          const sectionToggle = page.locator(site.collection.filters.sectionToggleSelector).first();
+          if (await sectionToggle.isVisible({ timeout: 3000 }).catch(() => false)) {
+            await clickResiliente(page, sectionToggle);
+            await page.waitForTimeout(500);
+          }
+        }
+
         // skipEscape: en sitios donde el toggle abre un <details>/<summary> nativo o un
         // drawer de filtros (ej. Adepac), Escape lo cierra de nuevo -- el label del filtro
         // sigue "attached" al DOM (por eso el waitFor de abajo no lo detecta) pero deja de
@@ -465,19 +577,68 @@ for (const site of sites) {
 
         const filterLabel = page.locator(site.collection.filters.labelSelector).first();
         await filterLabel.waitFor({ state: 'attached', timeout: 5000 });
+        // scrollIntoView vía evaluate (no el auto-scroll de Playwright): en paneles con
+        // listas largas dentro de un contenedor con overflow propio (ej. Ena Sport, facetas
+        // de sabor) el auto-scroll de click() a veces deja el elemento igual fuera del
+        // viewport visual ("Element is outside of the viewport"), porque no siempre resuelve
+        // bien un ancestro con su propio scroll interno.
+        await filterLabel.evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' })).catch(() => {});
 
         // Algunos widgets de filtro (ej. Shopify Search & Discovery) no siempre disparan su
         // listener de "change" con el primer click sintético — se reintenta una vez más antes
         // de fallar, en vez de asumir que un solo click alcanza siempre.
+        // urlChangePattern: por defecto se exige que la URL contenga "filter" (Shopify Search
+        // & Discovery nativo). Algunos sitios usan un filtro custom con otro formato de query
+        // (ej. RBX Active: "?sizes=M") — declarar este campo reemplaza ese patrón por sitio.
+        const patronUrl = site.collection.filters.urlChangePattern || /filter/i;
         let urlDespues = page.url();
-        for (let intento = 0; intento < 2 && urlDespues === urlAntes; intento++) {
-          await filterLabel.click({ force: true });
-          await page.waitForURL(/filter/i, { timeout: 8000 }).catch(() => null);
-          urlDespues = page.url();
+        try {
+          for (let intento = 0; intento < 2 && urlDespues === urlAntes; intento++) {
+            await filterLabel.click({ force: true });
+
+            // Algunos temas (ej. Sofía Sarkany, RBX Active) no aplican el filtro apenas se
+            // tilda el checkbox — exigen un click extra en un botón "Aplicar"/"Apply" del
+            // panel. Opcional: si el sitio no lo declara, el comportamiento es idéntico al
+            // actual.
+            if (site.collection.filters.applyButtonSelector) {
+              const applyBtn = page.locator(site.collection.filters.applyButtonSelector).first();
+              if (await applyBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+                await applyBtn.click({ force: true });
+              }
+            }
+
+            await page.waitForURL(patronUrl, { timeout: 8000 }).catch(() => null);
+            urlDespues = page.url();
+          }
+        } catch (e) {
+          // click({force:true}) puede tirar "Element is outside of the viewport" incluso con
+          // force (no es una de las actionability checks que force bypassea) cuando el
+          // ancestro con scroll propio no logra posicionar el elemento — visto en vivo de
+          // forma intermitente en Ena Sport. Con softCheck se trata como "no se pudo
+          // confirmar" en vez de reventar el test; sin softCheck se preserva el fallo duro
+          // para no ocultar un problema real de selectores en el resto de los sitios.
+          if (!site.collection.filters.softCheck) throw e;
         }
 
-        expect(urlDespues, `El filtro no modificó la URL en ${site.name}`).not.toBe(urlAntes);
-        expect(urlDespues.toLowerCase(), `La URL no refleja un filtro aplicado en ${site.name}`).toMatch(/filter/);
+        const filtroAplicado = urlDespues !== urlAntes && patronUrl.test(urlDespues.toLowerCase());
+
+        if (site.collection.filters.softCheck) {
+          // Confirmado en vivo (ej. Ena Sport) con scripts aislados idénticos, corridos
+          // varias veces seguidas sin ningún cambio de nuestro lado: a veces el click real
+          // dispara el listener de "change" del widget de filtro y a veces no — es una
+          // condición de carrera del propio JS del sitio al hidratar el panel, no un
+          // problema de selectores. Se valida best-effort para no generar alertas falsas de
+          // Slack por esto en cada corrida horaria.
+          test.info().annotations.push({
+            type: filtroAplicado ? 'info' : 'warning',
+            description: filtroAplicado
+              ? `Filtro OK en ${site.name}`
+              : `No se pudo confirmar que el filtro aplique vía automation en ${site.name} (best-effort, no bloquea el test)`,
+          });
+        } else {
+          expect(urlDespues, `El filtro no modificó la URL en ${site.name}`).not.toBe(urlAntes);
+          expect(urlDespues.toLowerCase(), `La URL no refleja un filtro aplicado en ${site.name}`).toMatch(patronUrl);
+        }
       }
     });
 
@@ -606,7 +767,7 @@ for (const site of sites) {
       await expect(header, `Header no visible en mobile en ${site.name}`).toBeVisible({ timeout: 10000 });
 
       await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' }));
-      const footer = page.locator('footer, [role="contentinfo"]').first();
+      const footer = await primeroVisible(page.locator('footer, [role="contentinfo"]'));
       await expect(footer, `Footer no visible en mobile en ${site.name}`).toBeVisible();
     });
 
