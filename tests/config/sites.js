@@ -605,4 +605,115 @@ module.exports = [
       checkoutButtonSelector: 'a:has-text("Checkout")',
     },
   },
+  {
+    id: 'BARE_NECESSITIES',
+    name: 'Bare Necessities',
+    baseUrl: 'https://www.barenecessities.com',
+    search: { term: 'bra' },
+    header: {
+      hasMegaMenu: true,
+      hoverSelector: 'button[aria-label="Bras submenu"]',
+      submenuSelector: '#nav-submenu-1',
+      subcategoryLinkSelector: '#nav-submenu-1 a[href="/collections/t-shirt-bras"]',
+      visibilityCheck: 'isVisible',
+    },
+    collection: {
+      path: '/collections/bras',
+      filters: {
+        enabled: true,
+        toggleSelector: 'button:has-text("Band Size")',
+        labelSelector: 'button.pinnedFilterItemLabel__1f06ef42:has-text("32")',
+        applyButtonSelector: 'button.pinnedFilterApplyButton__1f06ef42',
+        urlChangePattern: /band_size=/i,
+      },
+    },
+    pdp: {
+      path: '/products/elomi-matilda-side-support-plunge-bra-el8900?variant=44510989516913',
+      // Selector custom tipo combobox+listbox ARIA (ver soporte en seleccionarVariante() del
+      // spec): un <button role="combobox" aria-haspopup="listbox"> que al clickear despliega
+      // una lista de opciones con position:fixed.
+      variantType: 'combobox-listbox',
+      variantInputSelector: 'button.dropdownTrigger__b664e42e.placeholder__b664e42e:has-text("Size")',
+      variantOptionSelector: '[role="option"]',
+      quantitySelector: null,
+      addToCartSelector: 'button:has-text("Add to Cart")',
+    },
+    cart: {
+      // Mismo storefront headless custom "Bite" que COMFRT_COM y THREEBIRDNEST.
+      type: 'drawer',
+      containerSelector: '.cartContents, #cart-checkout-content',
+      itemSelector: 'ul[aria-label="Cart items"] li',
+      quantityIncreaseSelector: 'button[aria-label="Increase quantity"]',
+      quantityDecreaseSelector: 'button[aria-label="Decrease quantity"]',
+      quantityDisplay: { type: 'text', selector: '[role="spinbutton"]' },
+      checkoutButtonSelector: 'button:has-text("Checkout")',
+    },
+  },
+  {
+    id: 'INTI_TEA_PROFESIONAL',
+    name: 'Inti Tea Profesional',
+    baseUrl: 'https://profesional.inti-tea.com',
+    search: { term: 'organico' },
+    // Tienda mayorista real: exige cuenta aprobada para ver precios y comprar. La PDP no
+    // tiene botón de "Agregar al carrito" para visitantes anónimos (en su lugar hay botones
+    // "Registrarse"/"Login"), y /cart siempre está vacío. Confirmado con screenshots en
+    // varios productos — no es un bug de automation ni un selector mal apuntado. Se usa
+    // knownProductionBug (no ecommerce:false) porque el resto del storefront (header,
+    // catálogo+filtros, búsqueda, login, políticas) es 100% público y funciona bien.
+    knownProductionBug: 'profesional.inti-tea.com es una tienda mayorista real: exige cuenta aprobada para ver precios y comprar. La PDP no tiene botón de "Agregar al carrito" para visitantes anónimos (en su lugar hay botones "Registrarse"/"Login"), y /cart siempre está vacío.',
+    header: {
+      hasMegaMenu: true,
+      hoverSelector: 'summary[data-href="/collections/all"]',
+      submenuSelector: 'details:has(summary[data-href="/collections/all"]) .navmenu-meganav--desktop',
+      subcategoryLinkSelector: 'details:has(summary[data-href="/collections/all"]) a[href="/collections/in_t-hebras"]',
+      visibilityCheck: 'isVisible',
+    },
+    collection: {
+      path: '/collections/all',
+      filters: {
+        enabled: true,
+        labelSelector: 'a.collection-filters__filter-link[data-value="Doypack (Té en hebras)"]',
+      },
+    },
+    pdp: {
+      // Selectores null a propósito: el test.skip() de knownProductionBug corta el test-04
+      // antes de leerlos, y no hay ningún botón de compra real que apuntar.
+      path: '/products/mayorista-te-negro-organico-80gr',
+      variantType: 'none',
+      variantInputSelector: null,
+      quantitySelector: null,
+      addToCartSelector: null,
+    },
+    cart: {
+      type: 'page',
+      itemSelector: null,
+      quantityIncreaseSelector: null,
+      quantityDecreaseSelector: null,
+      quantityDisplay: null,
+      checkoutButtonSelector: null,
+    },
+  },
+  {
+    id: 'MACHINERY_MASTERS',
+    name: 'Machinery Masters',
+    baseUrl: 'https://machinerymasterslive.com',
+    // Marketplace B2B de maquinaria usada, sin carrito real: en cada PDP probada, en el lugar
+    // de "Add to Cart" hay "Request Seller Details" y "Apply for Financing" — flujo de
+    // contacto/cotización con el vendedor, no checkout. Confirmado con screenshot de PDP.
+    ecommerce: false,
+    cookieBannerAcceptSelector: 'button:has-text("Allow all cookies")',
+    header: {
+      hasMegaMenu: true,
+      hoverSelector: 'text=Food Processing',
+      submenuSelector: 'p:has-text("Bakery Equipment")',
+      // Storefront Next.js/Tailwind sin ids/clases semánticas. El panel del mega menú usa una
+      // transición de opacity de Tailwind; isVisible() no distingue opacity:0 de opacity:1
+      // (el panel ya ocupa layout antes de la transición), así que la detección de "menú
+      // abierto" no es 100% confiable vía automation aunque el menú funcione bien para un
+      // usuario real — mismo patrón que ENASPORT/LUSSOCLOUD.
+      softCheck: true,
+      subcategoryLinkSelector: 'p:has-text("Bakery Equipment")',
+      visibilityCheck: 'isVisible',
+    },
+  },
 ];

@@ -12,7 +12,15 @@ const POPUP_SELECTOR =
   '[id*="chat-widget"], [class*="chat-widget"], [id*="chat-launcher"], [class*="chat-launcher"],' +
   '[id*="gorgias-chat"], [id*="tidio"], [id*="intercom"], [class*="intercom"], iframe[title*="chat" i],' +
   '[id*="onetrust"], [class*="onetrust"], [id*="cookiebot"], [class*="cookiebot"], .modal-backdrop,' +
-  'pandectes-cmp, [aria-label="Cookie consent" i], [id*="recart"]';
+  'pandectes-cmp, [aria-label="Cookie consent" i], [id*="recart"], [id*="ltkpopup"]';
+// [id*="ltkpopup"]: vendor de marketing ("LTK") visto en barenecessities.com. Inyecta
+// #ltkpopup-container (role="dialog" aria-modal="true", ya cubierto por el patrón genérico de
+// arriba) pero TAMBIÉN #ltkpopup-overlay: un <div aria-hidden="true"> invisible que queda
+// cubriendo TODO el viewport y absorbe cualquier click real, incluso después de cerrar el
+// popup con "NO, THANKS" — confirmado con Locator.click() fallando con "intercepts pointer
+// events" apuntando a ese div, y con document.elementFromPoint() sobre el header devolviendo
+// ese overlay en vez del menú. El patrón genérico de role=dialog no lo alcanza porque no
+// tiene ese atributo. Bloquear por id (no por rol) evita tocar el resto de los sitios.
 // pandectes-cmp: visto SOLO en GitHub Actions (nunca en local) — el consent management
 // platform "Pandectes" muestra este banner según geolocalización de la IP, y GitHub Actions
 // corre desde datacenters distintos a donde se probó en local. Confirmado en un run real de
@@ -302,6 +310,23 @@ async function seleccionarVariante(page, pdp) {
         return;
       }
     }
+    return;
+  }
+
+  // Selector custom tipo combobox+listbox ARIA (visto en barenecessities.com: un
+  // <button role="combobox" aria-haspopup="listbox"> que al clickear despliega una lista
+  // <[role="option"]> posicionada con position:fixed). El theme duplica el trigger para
+  // desktop/mobile (uno de los dos con bounding box 0x0), de ahí primeroVisible(). La lista
+  // de opciones puede ser mucho más alta que el viewport de test — alcanza con elegir la
+  // primera opción disponible para completar el flujo de compra real, no hace falta una
+  // variante específica.
+  if (pdp.variantType === 'combobox-listbox') {
+    const trigger = await primeroVisible(opciones);
+    await trigger.click();
+    await page.waitForTimeout(600);
+    const option = page.locator(pdp.variantOptionSelector || '[role="option"]').first();
+    await option.click({ timeout: 8000 });
+    await page.waitForTimeout(600);
   }
 }
 
@@ -454,7 +479,11 @@ for (const site of sites) {
       // Se usa primeroVisible() en vez de .first(): algunos sitios (ej. Ena Sport) tienen un
       // botón de búsqueda mobile oculto en desktop (sm:hidden) que aparece antes que el logo
       // real en el orden del DOM — .first() sin filtrar visibilidad agarraba ese nodo oculto.
-      const logo = await primeroVisible(page.locator('[class*="logo"], header a'));
+      // logoSelector/footerSelector (opcionales, a nivel sitio): algunos landings sin tienda
+      // (ej. latechfactory.com) son custom-built sin <header>/<footer>/<nav> semánticos ni
+      // ninguna clase reconocible como "logo" — para esos casos el sitio puede declarar su
+      // propio selector; si no lo declara, el comportamiento genérico es idéntico al actual.
+      const logo = await primeroVisible(page.locator(site.logoSelector || '[class*="logo"], header a'));
       await expect(logo).toBeVisible({ timeout: 10000 });
 
       await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }));
@@ -464,7 +493,7 @@ for (const site of sites) {
       // primeroVisible(): algunos sitios (ej. Ailu y Andi) renderizan más de un <footer> —
       // plantillas internas ocultas de un custom element además del footer real — y .first()
       // sin filtrar visibilidad agarraba siempre uno de los ocultos.
-      const footer = await primeroVisible(page.locator('footer, [role="contentinfo"]'));
+      const footer = await primeroVisible(page.locator(site.footerSelector || 'footer, [role="contentinfo"]'));
       await expect(footer).toBeVisible();
 
       if (site.header?.hasMegaMenu) {
@@ -509,7 +538,11 @@ for (const site of sites) {
 
         if (menuAbierto) {
           const sublink = await primeroVisible(page.locator(site.header.subcategoryLinkSelector));
-          await sublink.click();
+          // clickResiliente (no un .click() plano): en menús que abren con una transición CSS
+          // (ej. machinerymasterslive.com, opacity con transition) un click justo durante la
+          // transición puede caer en la ventana en que Playwright considera el elemento "not
+          // stable" todavía — confirmado en vivo con ~1/3 de intentos fallando sin retry.
+          await clickResiliente(page, sublink);
           await page.waitForLoadState('domcontentloaded');
           await neutralizarPopups(page);
           await validarSinErrores(page, 'Subcategoría del Header');
@@ -527,6 +560,50 @@ for (const site of sites) {
 
       const producto = await primeroVisible(page.locator('a[href*="/products/"]'));
       await expect(producto).toBeVisible({ timeout: 10000 });
+
+      // Best-effort: el título que muestra la card de resultado "debería" corresponder con el
+      // <h1> real de la PDP a la que lleva. Se reporta como anotación informativa, NUNCA como
+      // fallo duro: en varios temas (confirmado en vivo) el primer link visible a "/products/"
+      // en la página de búsqueda es un banner promocional (ej. "CURSO NUEVO! Conocé el último
+      // lanzamiento!" en Ailu y Andi) y no la card real del resultado — un selector genérico
+      // que distinga "card de resultado real" de "banner promocional" no es confiable across
+      // los ~13 temas distintos que ya soporta este sistema, así que forzarlo como assert duro
+      // generaría alertas falsas de Slack por un límite de la heurística, no por un bug real.
+      const normalizar = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+      const textoOriginalEnBusqueda = await producto.textContent();
+      const tituloEnBusqueda = normalizar(textoOriginalEnBusqueda);
+
+      if (tituloEnBusqueda.length >= 8) {
+        // Todo el bloque en un try/catch con timeouts cortos y explícitos: es un chequeo
+        // best-effort, así que en ningún caso puede arrastrar el test hasta su timeout
+        // global de 60s si el sitio es lento para esta interacción puntual (confirmado en
+        // vivo en RBX Active: el click de producto.click() sin timeout propio tardó ~55s en
+        // superar los chequeos de actionability de Playwright, dejando muy poco margen para
+        // el resto del test).
+        try {
+          await producto.click({ timeout: 8000 });
+          // No se usa waitForLoadState('domcontentloaded'): algunos temas (ej. RBX Active,
+          // React SPA) navegan client-side sin un nuevo evento de carga de documento, y ese
+          // wait se cuelga hasta el timeout global del test. Esperar el <h1> directamente
+          // funciona para navegación real y para SPA por igual.
+          await page.locator('h1').first().waitFor({ state: 'attached', timeout: 8000 });
+          await neutralizarPopups(page);
+          const tituloEnPDP = normalizar(await page.locator('h1').first().textContent());
+          const extracto = tituloEnBusqueda.slice(0, 15);
+          const corresponde = tituloEnPDP.includes(extracto);
+          test.info().annotations.push({
+            type: corresponde ? 'info' : 'warning',
+            description: corresponde
+              ? `Título de búsqueda↔PDP OK en ${site.name}`
+              : `No se pudo confirmar que el título de la card de búsqueda corresponda con la PDP en ${site.name} (buscado: "${textoOriginalEnBusqueda}") — best-effort, no bloquea el test.`,
+          });
+        } catch (e) {
+          test.info().annotations.push({
+            type: 'info',
+            description: `No se pudo verificar el título de búsqueda↔PDP en ${site.name} (best-effort, no bloquea el test): ${e.message?.split('\n')[0]}`,
+          });
+        }
+      }
     });
 
     test(`${site.id}-03: Catálogo - Grilla y Filtros`, async ({ page }) => {
@@ -603,7 +680,23 @@ for (const site of sites) {
             if (site.collection.filters.applyButtonSelector) {
               const applyBtn = page.locator(site.collection.filters.applyButtonSelector).first();
               if (await applyBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-                await applyBtn.click({ force: true });
+                try {
+                  await applyBtn.click({ force: true });
+                } catch (clickError) {
+                  // Algunos paneles de filtro (ej. Bare Necessities: dropdown "Band Size")
+                  // son un panel position:fixed cuyo contenido (lista + botón Apply) excede
+                  // el viewport de test (1280x720) — el botón queda "visible" pero Playwright
+                  // rechaza dispatchear un click ahí incluso con force (no permite coordenadas
+                  // fuera del viewport). Confirmado en vivo: el filtro SÍ aplica de verdad
+                  // (URL y cantidad de productos cambian) si se dispara un click nativo del
+                  // DOM en vez de uno basado en coordenadas de mouse. Fallback puntual a ese
+                  // error para no enmascarar otros fallos reales de click.
+                  if (/outside of the viewport/i.test(clickError.message)) {
+                    await applyBtn.evaluate((el) => el.click());
+                  } else {
+                    throw clickError;
+                  }
+                }
               }
             }
 
@@ -749,6 +842,16 @@ for (const site of sites) {
       await neutralizarPopups(page);
       await validarSinErrores(page, 'Home Mobile');
 
+      // Algunos carruseles con JS propio (ej. Keen Slider, visto en barenecessities.com)
+      // recién aplican su clipping real (overflow-x:hidden sobre su propio track) un
+      // instante después de 'domcontentloaded' — confirmado en vivo: medir el overflow
+      // inmediatamente después de la carga muestra ~19px de más (el slide siguiente del
+      // carrusel todavía sin clippear), pero ese valor cae solo a 0 sin ninguna interacción
+      // nuestra apenas la librería termina de inicializar (~1-1.5s después). Un usuario real
+      // tampoco alcanza a interactuar en esa ventana. Se le da ese margen antes de medir para
+      // no reportar como bug de layout lo que en realidad es timing de hidratación.
+      await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
+
       // Overflow horizontal es el síntoma más común y más visible de un layout responsive
       // roto (un elemento con un ancho fijo, una imagen sin max-width, etc.). Se tolera un
       // margen chico (scrollbars, redondeos de subpíxel) en vez de exigir 0 exacto.
@@ -762,13 +865,47 @@ for (const site of sites) {
 
       // primeroVisible() en vez de .first(): algunos sitios tienen secciones de header
       // ocultas en mobile (ej. Ena Sport, cuya mega nav de desktop matchea primero por el
-      // selector genérico pero tiene display:none en este viewport).
-      const header = await primeroVisible(page.locator('header, [class*="header"]'));
+      // selector genérico pero tiene display:none en este viewport). logoSelector se
+      // reutiliza acá como "algo del header" para sitios sin <header> semántico.
+      const header = await primeroVisible(page.locator(site.logoSelector || 'header, [class*="header"]'));
       await expect(header, `Header no visible en mobile en ${site.name}`).toBeVisible({ timeout: 10000 });
 
       await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' }));
-      const footer = await primeroVisible(page.locator('footer, [role="contentinfo"]'));
+      const footer = await primeroVisible(page.locator(site.footerSelector || 'footer, [role="contentinfo"]'));
       await expect(footer, `Footer no visible en mobile en ${site.name}`).toBeVisible();
+    });
+
+    test(`${site.id}-08: Visual - Elementos rotos`, async ({ page }) => {
+      // Test visual separado de los funcionales (01-07) a propósito, para que quede claro en
+      // Slack/CI si lo que falló es una interacción (búsqueda, carrito, etc.) o algo puramente
+      // visual. Detección basada en inspección del DOM, SIN capturar ni guardar ninguna
+      // imagen/screenshot en cada corrida (Playwright ya adjunta un screenshot automático
+      // solo cuando un test falla, vía playwright.config.js) — así no se acumulan fotos en
+      // git/GitHub en cada corrida horaria, solo cuando hay algo real para revisar.
+      await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await aceptarCookies(page, site);
+      await neutralizarPopups(page);
+      await validarSinErrores(page, 'Home Visual');
+
+      const diagnostico = await page.evaluate(() => {
+        // Solo imágenes que ocupan espacio real en el layout (descarta las de 0x0, que
+        // suelen ser trackers/pixels, no contenido visual real como un banner o una foto).
+        const imgsRotas = [...document.querySelectorAll('img')]
+          .filter((img) => img.getBoundingClientRect().width > 2 && img.getBoundingClientRect().height > 2)
+          .filter((img) => img.complete && img.naturalWidth === 0)
+          .map((img) => img.currentSrc || img.src || img.getAttribute('data-src') || '(sin src)');
+
+        return { imgsRotas, hojasDeEstilo: document.styleSheets.length };
+      });
+
+      expect(
+        diagnostico.imgsRotas,
+        `Imagen(es) rota(s) detectada(s) en Home de ${site.name} (ej. un banner o foto de producto que no cargó): ${diagnostico.imgsRotas.join(', ')}`
+      ).toHaveLength(0);
+      expect(
+        diagnostico.hojasDeEstilo,
+        `No se detectó ninguna hoja de estilos cargada en ${site.name} — la página podría estar mostrándose sin ningún estilo visual.`
+      ).toBeGreaterThan(0);
     });
 
   });
