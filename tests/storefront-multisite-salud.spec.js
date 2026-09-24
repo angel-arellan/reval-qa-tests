@@ -189,7 +189,13 @@ for (const site of sites) {
         if (coincide(e.mensaje, ERRORES_JS_GLOBALES_IGNORADOS)) return false;
         if (coincide(e.mensaje, cfg.ignorarErroresJs)) return false;
         const urlsStack = e.stack.match(/https?:\/\/[^\s)]+/g) || [];
-        return urlsStack.length > 0 && esPropia(urlsStack[0], site) && !/\/extensions\//.test(urlsStack[0]);
+        if (urlsStack.length === 0) return false;
+        const origen = urlsStack[0].replace(/:\d+:\d+$/, '');
+        // Solo archivos .js del theme/sitio. Los scripts inline del HTML se excluyen: en su
+        // gran mayoría son snippets que inyectan apps (tracking, reviews, consentimiento) y
+        // fallaban según la geolocalización del runner sin impacto visible (confirmado en
+        // comfrt.com: error solo desde GitHub Actions, en un script inline minificado).
+        return esPropia(origen, site) && /\.js(\?|$)/.test(origen) && !/\/extensions\//.test(origen);
       });
       const unicos = [...new Map(propios.map((e) => [e.mensaje, e])).values()];
       expect(
