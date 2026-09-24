@@ -1,6 +1,7 @@
-name: Playwright Multisite Salud Técnica (Cada 2 horas)
+name: Playwright Multisite Salud Técnica y Responsive (Cada 2 horas)
 
-# Suite de salud técnica (tests/storefront-multisite-salud.spec.js) para todas las tiendas de
+# Suites de salud técnica (tests/storefront-multisite-salud.spec.js) y responsive/mobile
+# (tests/storefront-multisite-responsive.spec.js) para todas las tiendas de
 # tests/config/sites.js. Corre a los :30 de las horas pares para no coincidir con la suite
 # funcional multisite (que corre a los :00 de cada hora). Solo lectura: no crea pedidos ni
 # envía formularios en las tiendas de clientes.
@@ -34,9 +35,9 @@ jobs:
           echo "matrix={\"include\":$SITES}" >> "$GITHUB_OUTPUT"
 
   salud-tecnica:
-    name: Salud - ${{ matrix.name }}
+    name: Salud y Responsive - ${{ matrix.name }}
     needs: discover-sites
-    timeout-minutes: 30
+    timeout-minutes: 45
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -55,8 +56,8 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run Salud Técnica - ${{ matrix.name }}
-        run: npx playwright test tests/storefront-multisite-salud.spec.js --grep "${{ matrix.id }}-SALUD-" --reporter=html,json
+      - name: Run Salud Técnica y Responsive - ${{ matrix.name }}
+        run: npx playwright test tests/storefront-multisite-salud.spec.js tests/storefront-multisite-responsive.spec.js --grep "${{ matrix.id }}-(SALUD|RESP)-" --reporter=html,json
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: resultados.json
 
@@ -93,7 +94,7 @@ jobs:
           PAYLOAD=$(node -e "
             const [name, url, fallidos, run] = process.argv.slice(1);
             console.log(JSON.stringify({ text:
-              '🩺 *ALERTA DE SALUD TÉCNICA - ' + name + '*\n\n' +
+              '🩺 *ALERTA DE SALUD TÉCNICA / RESPONSIVE - ' + name + '*\n\n' +
               '⚠️ *Atención Management:* Problemas técnicos detectados en la tienda productiva (*' + url + '*).\n\n' +
               '📌 *Chequeos que fallaron:*\n' + fallidos + '\n\n' +
               '🔗 Reporte: ' + run
