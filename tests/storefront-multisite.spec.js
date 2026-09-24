@@ -58,7 +58,11 @@ const POPUP_SELECTOR =
 // <tienda>.attn.tv) aparece de forma probabilística (no en cada carga) como overlay a
 // pantalla completa con clases hasheadas del mismo storefront custom, sin ningún id/clase
 // reconocible por los patrones genéricos — mismo fix que alia-prod.com.
-const DOMINIOS_POPUP_BLOQUEADOS = [/alia-prod\.com/, /attn\.tv/];
+// El banner de cookies de comfrt.com (CMP "Osano", cmp.osano.com, visto desde sep-2026) es
+// una barra inferior role="dialog" aria-modal="false" que tapaba el botón de Checkout del
+// drawer del carrito. Borrarlo del DOM no sirve: se re-inserta solo en loop y deja la página
+// colgada (todos los tests de Comfrt en timeout). Mismo fix que alia/attn: bloquear el dominio.
+const DOMINIOS_POPUP_BLOQUEADOS = [/alia-prod\.com/, /attn\.tv/, /osano\.com/];
 
 // Algunos temas implementan su drawer de carrito REAL como un diálogo accesible nativo
 // (<div role="dialog" aria-modal="true">) — exactamente el mismo patrón de marcado que usan
@@ -801,6 +805,19 @@ for (const site of sites) {
       await checkoutBtn.scrollIntoViewIfNeeded({ timeout: 8000 }).catch(() => {});
       await clickResiliente(page, checkoutBtn);
       await page.waitForURL(/checkout/, { timeout: 20000 }).catch(() => null);
+
+      // Reintento si no navegó: el último intento de clickResiliente usa force, que clickea
+      // por coordenadas — si un banner nuevo (ej. CMP de cookies que todavía no está en
+      // POPUP_SELECTOR) tapa el botón, el click cae en el banner y no pasa nada, sin error.
+      // Un click vía JS dispara el handler real del botón aunque algo lo tape. Si ni así
+      // navega, el checkout está roto de verdad y el test falla abajo.
+      for (let intento = 0; intento < 2 && !/checkout/.test(page.url()); intento++) {
+        await neutralizarPopups(page, { skipEscape: true });
+        const btn = await primeroVisible(cartRoot.locator(site.cart.checkoutButtonSelector));
+        if (!await btn.isVisible({ timeout: 3000 }).catch(() => false)) break;
+        await btn.evaluate((el) => el.click()).catch(() => {});
+        await page.waitForURL(/checkout/, { timeout: 20000 }).catch(() => null);
+      }
 
       expect(page.url(), `No se llegó a checkout en ${site.name}`).toMatch(/checkout/);
       await validarSinErrores(page, 'Checkout');
