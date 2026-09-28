@@ -62,7 +62,11 @@ const POPUP_SELECTOR =
 // una barra inferior role="dialog" aria-modal="false" que tapaba el botón de Checkout del
 // drawer del carrito. Borrarlo del DOM no sirve: se re-inserta solo en loop y deja la página
 // colgada (todos los tests de Comfrt en timeout). Mismo fix que alia/attn: bloquear el dominio.
-const DOMINIOS_POPUP_BLOQUEADOS = [/alia-prod\.com/, /attn\.tv/, /osano\.com/];
+// El asistente "Ansilta AI" de ansilta.com (visto sep-2026, solo desde GitHub Actions) se abre
+// solo como panel flotante a la izquierda de la colección, justo encima del filtro de Talle,
+// y el click del filtro nunca llega ("El filtro no modificó la URL"). Se carga desde
+// adsagentclientafd-*.azurefd.net; se bloquea el dominio igual que los demás vendors.
+const DOMINIOS_POPUP_BLOQUEADOS = [/alia-prod\.com/, /attn\.tv/, /osano\.com/, /adsagentclient[\w-]*\.[\w.-]*azurefd\.net/];
 
 // Algunos temas implementan su drawer de carrito REAL como un diálogo accesible nativo
 // (<div role="dialog" aria-modal="true">) — exactamente el mismo patrón de marcado que usan
