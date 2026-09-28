@@ -264,13 +264,24 @@ async function primeroVisible(locator) {
   return locator.first();
 }
 
+// Revisa TODOS los elementos que matchean submenuSelector, no solo el primero: cuando el
+// selector es genérico del theme (una clase compartida por todos los submenús), el primero
+// del DOM puede ser el de otro ítem del menú. Confirmado en sofiasarkany.com (sep-2026): el
+// sitio sumó "NEW ARRIVALS" antes de "INDUMENTARIA", el primer .sub-menu pasó a ser el de
+// New Arrivals (oculto) y el test fallaba aunque el mega menú de Indumentaria estaba abierto.
 async function submenuVisible(page, header) {
-  const submenu = page.locator(header.submenuSelector).first();
-  if (header.visibilityCheck === 'boundingBox') {
-    const box = await submenu.boundingBox().catch(() => null);
-    return !!box && box.height > 5;
+  const submenus = page.locator(header.submenuSelector);
+  const total = await submenus.count().catch(() => 0);
+  for (let i = 0; i < total; i++) {
+    const submenu = submenus.nth(i);
+    if (header.visibilityCheck === 'boundingBox') {
+      const box = await submenu.boundingBox().catch(() => null);
+      if (box && box.height > 5) return true;
+    } else if (await submenu.isVisible().catch(() => false)) {
+      return true;
+    }
   }
-  return submenu.isVisible().catch(() => false);
+  return false;
 }
 
 // Cada theme selecciona variantes distinto: swatch de color (input radio oculto + label),
