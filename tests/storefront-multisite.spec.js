@@ -8,7 +8,7 @@ test.use({
 
 const POPUP_SELECTOR =
   '[id*="klaviyo"], [class*="newsletter"], [id*="shopify-section-popup"], [class*="cookie"], [id*="cookie"],' +
-  '[id*="alia"], [class*="alia"], [role="dialog"][aria-modal="true"]:not([id*="facet" i]):not([class*="facet" i]):not([aria-label="Shopping cart" i]), [data-kl-scroll-locking-modal],' +
+  '[id*="alia"], [class*="alia"], [role="dialog"][aria-modal="true"]:not([id*="facet" i]):not([class*="facet" i]):not([aria-label="Shopping cart" i]):not([aria-labelledby*="cart" i]), [data-kl-scroll-locking-modal],' +
   '[id*="chat-widget"], [class*="chat-widget"], [id*="chat-launcher"], [class*="chat-launcher"],' +
   '[id*="gorgias-chat"], [id*="tidio"], [id*="intercom"], [class*="intercom"], iframe[title*="chat" i],' +
   '[id*="onetrust"], [class*="onetrust"], [id*="cookiebot"], [class*="cookiebot"], .modal-backdrop,' +
@@ -26,6 +26,11 @@ const POPUP_SELECTOR =
 // corre desde datacenters distintos a donde se probó en local. Confirmado en un run real de
 // SwissGear CA: <pandectes-cmp role="region" aria-label="Cookie consent"> interceptando el
 // click del checkout.
+// :not([aria-labelledby*="cart" i]) en el patrón de role="dialog": el drawer de RBX Active
+// (<div role="dialog" aria-modal="true" aria-labelledby="slide-out-cart-title">) recibe esos
+// atributos con algo de demora tras abrirse; cuando llegaban, el MutationObserver lo borraba
+// y el carrito quedaba solo con el overlay ("No se ve ningún item"), de forma intermitente.
+// Un diálogo rotulado como carrito nunca es un popup a limpiar.
 // Deliberadamente NO se incluye un wildcard genérico tipo [class*="popup"]: ninguno de los
 // carritos/drawers configurados hoy usa esa palabra en su clase, pero a medida que se sumen
 // más tiendas (con temas distintos) un patrón tan amplio puede terminar ocultando el drawer
@@ -388,7 +393,13 @@ async function esperarCambioCantidad(page, scope, quantityDisplay, valorAnterior
 // que el test mismo corrompa el estado del carrito reintentando a ciegas.
 async function clickYEsperarCambio(page, btn, scope, quantityDisplay, valorAnterior) {
   await clickResiliente(page, btn);
-  return esperarCambioCantidad(page, scope, quantityDisplay, valorAnterior);
+  const valor = await esperarCambioCantidad(page, scope, quantityDisplay, valorAnterior);
+  // El número en pantalla puede actualizarse antes de que el JS del sitio termine de
+  // procesar la respuesta de /cart/change.js. Si se aprieta "−" en esa ventana, algunos
+  // temas (visto en Stars + Honey con red/CPU cargadas) calculan sobre el valor viejo y
+  // mandan quantity=0, vaciando el carrito. Se espera a que la red se calme antes de seguir.
+  await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+  return valor;
 }
 
 // En algunos sitios el cambio de cantidad es genuinamente flaky en automation (condición de
@@ -408,13 +419,28 @@ function verificarCambioCantidad(test, site, valorNuevo, valorAnterior, mensaje)
   }
 }
 
+// Navegación tolerante a cargas lentas puntuales: en CI/local se vio que una tienda que
+// responde en <1s (ej. Bare Necessities) a veces tarda >45s en llegar a domcontentloaded
+// por algún script de terceros colgado, sobre todo al volver desde el checkout. Si pasa,
+// se reintenta una vez esperando solo a que llegue la respuesta del servidor (commit) y
+// después se da un margen para el DOM — una tienda caída de verdad sigue fallando acá.
+async function irA(page, url) {
+  try {
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+  } catch (e) {
+    if (!/Timeout/i.test(e.message)) throw e;
+    await page.goto(url, { waitUntil: 'commit', timeout: 45000 });
+    await page.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
+  }
+}
+
 // Llega a un PDP real (fijo o vía búsqueda), selecciona variante/cantidad si existen,
 // y agrega al carrito. Se reutiliza tanto para el test de PDP como para el de carrito.
 async function agregarProductoAlCarrito(page, site, BASE_URL) {
   if (site.pdp.path) {
-    await page.goto(`${BASE_URL}${site.pdp.path}`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+    await irA(page, `${BASE_URL}${site.pdp.path}`);
   } else {
-    await page.goto(`${BASE_URL}/search?q=${site.search.term}`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+    await irA(page, `${BASE_URL}/search?q=${site.search.term}`);
     await aceptarCookies(page, site);
     await neutralizarPopups(page);
     const productoLink = await primeroVisible(page.locator('a[href*="/products/"]'));
@@ -481,7 +507,7 @@ async function agregarProductoAlCarrito(page, site, BASE_URL) {
       : drawer;
     await expect(abrio, `El carrito no se abrió tras agregar en ${site.name}`).toBeVisible({ timeout: 10000 });
   } else {
-    await page.goto(`${BASE_URL}/cart`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+    await irA(page, `${BASE_URL}/cart`);
     await aceptarCookies(page, site);
     await neutralizarPopups(page);
     await validarSinErrores(page, 'Carrito');
@@ -500,7 +526,7 @@ for (const site of sites) {
   test.describe(`Storefront Multisite – ${site.name} (${BASE_URL})`, () => {
 
     test(`${site.id}-01: Home & Header - Navegación por Categorías`, async ({ page }) => {
-      await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await irA(page, BASE_URL);
       await aceptarCookies(page, site);
       await neutralizarPopups(page);
       await validarSinErrores(page, 'Home');
@@ -582,7 +608,7 @@ for (const site of sites) {
     if (esEcommerce) {
 
     test(`${site.id}-02: Buscador - Búsqueda en Vivo`, async ({ page }) => {
-      await page.goto(`${BASE_URL}/search?q=${site.search.term}`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await irA(page, `${BASE_URL}/search?q=${site.search.term}`);
       await aceptarCookies(page, site);
       await neutralizarPopups(page);
       await validarSinErrores(page, 'Resultados de Búsqueda');
@@ -636,7 +662,7 @@ for (const site of sites) {
     });
 
     test(`${site.id}-03: Catálogo - Grilla y Filtros`, async ({ page }) => {
-      await page.goto(`${BASE_URL}${site.collection.path}`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await irA(page, `${BASE_URL}${site.collection.path}`);
       await aceptarCookies(page, site);
       await neutralizarPopups(page);
       await validarSinErrores(page, 'Catálogo');
@@ -804,7 +830,12 @@ for (const site of sites) {
           const valorSubido = await clickYEsperarCambio(page, incBtn, item, site.cart.quantityDisplay, valorAntes);
           verificarCambioCantidad(test, site, valorSubido, valorAntes, `La cantidad no subió en el carrito de ${site.name}`);
 
-          if (site.cart.quantityDecreaseSelector) {
+          // Solo se baja si la subida se confirmó: si el "+" no registró (sitios con
+          // quantityCheckSoft) y se aprieta "−" igual, la cantidad pasa de 1 a 0 y el propio
+          // test vacía el carrito — falla luego en "no se encontró el botón de checkout"
+          // (visto en Stars + Honey). No es un bug del sitio, es una falsa alarma autoinfligida.
+          const subioConfirmado = valorAntes === null || (valorSubido !== null && valorSubido !== valorAntes);
+          if (site.cart.quantityDecreaseSelector && subioConfirmado) {
             const decBtn = item.locator(site.cart.quantityDecreaseSelector).first();
             if (await decBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
               const valorBajado = await clickYEsperarCambio(page, decBtn, item, site.cart.quantityDisplay, valorSubido);
@@ -812,6 +843,19 @@ for (const site of sites) {
             }
           }
         }
+      }
+
+      // Red de seguridad para sitios con cantidad best-effort: si la condición de carrera del
+      // propio sitio vació el carrito durante el +/−, no tiene sentido fallar el checkout por
+      // eso. Se deja la advertencia en el reporte y se vuelve a agregar el producto para
+      // seguir validando lo importante (que se llega al checkout).
+      if (site.quantityCheckSoft && !(await item.isVisible().catch(() => false))) {
+        test.info().annotations.push({
+          type: 'warning',
+          description: `El carrito de ${site.name} quedó vacío tras cambiar la cantidad (carrera del AJAX del sitio); se re-agrega el producto`,
+        });
+        await agregarProductoAlCarrito(page, site, BASE_URL);
+        await expect(cartRoot.locator(site.cart.itemSelector).first(), `No se ve ningún item en el carrito de ${site.name}`).toBeVisible({ timeout: 10000 });
       }
 
       // Pequeña espera de estabilización: algunos carritos re-renderizan (ej. agregan un
@@ -847,12 +891,12 @@ for (const site of sites) {
       expect(page.url(), `No se llegó a checkout en ${site.name}`).toMatch(/checkout/);
       await validarSinErrores(page, 'Checkout');
 
-      await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await irA(page, BASE_URL);
       await validarSinErrores(page, 'Vuelta desde Checkout');
     });
 
     test(`${site.id}-05: Acceso al Login`, async ({ page }) => {
-      await page.goto(`${BASE_URL}/account/login`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await irA(page, `${BASE_URL}/account/login`);
       await aceptarCookies(page, site);
       await neutralizarPopups(page);
       await validarSinErrores(page, 'Login');
@@ -862,12 +906,12 @@ for (const site of sites) {
     });
 
     test(`${site.id}-06: Políticas Legales`, async ({ page }) => {
-      await page.goto(`${BASE_URL}/policies/terms-of-service`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await irA(page, `${BASE_URL}/policies/terms-of-service`);
       await aceptarCookies(page, site);
       await neutralizarPopups(page);
       await validarSinErrores(page, 'Términos');
 
-      await page.goto(`${BASE_URL}/policies/privacy-policy`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await irA(page, `${BASE_URL}/policies/privacy-policy`);
       await neutralizarPopups(page);
       await validarSinErrores(page, 'Privacidad');
     });
@@ -879,7 +923,7 @@ for (const site of sites) {
       // primero en el ancho más angosto realista, no en un mobile grande.
       await page.setViewportSize({ width: 375, height: 812 });
 
-      await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await irA(page, BASE_URL);
       await aceptarCookies(page, site);
       await neutralizarPopups(page);
       await validarSinErrores(page, 'Home Mobile');
@@ -924,7 +968,7 @@ for (const site of sites) {
       // imagen/screenshot en cada corrida (Playwright ya adjunta un screenshot automático
       // solo cuando un test falla, vía playwright.config.js) — así no se acumulan fotos en
       // git/GitHub en cada corrida horaria, solo cuando hay algo real para revisar.
-      await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await irA(page, BASE_URL);
       await aceptarCookies(page, site);
       await neutralizarPopups(page);
       await validarSinErrores(page, 'Home Visual');

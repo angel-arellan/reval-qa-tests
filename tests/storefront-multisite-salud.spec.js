@@ -119,7 +119,16 @@ async function bloquearPopups(page) {
 }
 
 async function visitar(page, url) {
-  const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  // Si un script de terceros cuelga el domcontentloaded (visto en Bare Necessities, que
+  // responde en <1s), se reintenta una vez esperando solo la respuesta del servidor.
+  let response;
+  try {
+    response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  } catch (e) {
+    if (!/Timeout/i.test(e.message)) throw e;
+    response = await page.goto(url, { waitUntil: 'commit', timeout: 45000 });
+    await page.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
+  }
   // Dejar que carguen imágenes lazy del primer viewport, apps y pixels.
   await page.waitForLoadState('load', { timeout: 20000 }).catch(() => {});
   await page.waitForTimeout(2500);
