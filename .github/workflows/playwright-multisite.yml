@@ -47,7 +47,27 @@ jobs:
         run: npx playwright install --with-deps
 
       - name: Run Storefront Tests - ${{ matrix.name }}
+        id: tests
+        continue-on-error: true
         run: npx playwright test tests/storefront-multisite.spec.js --grep "${{ matrix.id }}-" --reporter=html
+
+      # Anti falsas alarmas: si algo falló (ya con los 2 reintentos de Playwright, o sea 3
+      # intentos), se espera unos minutos y se re-ejecuta SOLO lo que falló. Únicamente si
+      # vuelve a fallar (6 intentos en total, separados en el tiempo) el job queda en rojo y
+      # se avisa a Slack. Filtra cortes de red, CDNs lentos y popups intermitentes de CI.
+      - name: Confirmar fallas - ${{ matrix.name }}
+        id: confirm
+        if: steps.tests.outcome == 'failure'
+        continue-on-error: true
+        run: |
+          sleep 180
+          npx playwright test tests/storefront-multisite.spec.js --grep "${{ matrix.id }}-" --reporter=html --last-failed
+
+      - name: Resultado final - ${{ matrix.name }}
+        if: steps.tests.outcome == 'failure' && steps.confirm.outcome != 'success'
+        run: |
+          echo "::error::Falla confirmada: los tests fallaron también en la re-ejecución de confirmación."
+          exit 1
 
       - name: Upload HTML Report - ${{ matrix.name }}
         if: always()

@@ -321,12 +321,25 @@ for (const site of sites) {
 
     test(`${site.id}-RESP-06: Mobile - Imágenes del primer pantallazo cargan`, async ({ page }) => {
       await visitar(page, site.baseUrl);
-      const rotas = await page.evaluate(() => [...document.querySelectorAll('img')].filter((img) => {
+      let rotas = await page.evaluate(() => [...document.querySelectorAll('img')].filter((img) => {
         const r = img.getBoundingClientRect();
         const enPantalla = r.width > 20 && r.height > 20 && r.top < window.innerHeight && r.bottom > 0;
         const cs = getComputedStyle(img);
         return enPantalla && cs.visibility !== 'hidden' && Number(cs.opacity) > 0.05 && img.complete && img.naturalWidth === 0;
       }).map((img) => img.currentSrc || img.src || '(sin src)'));
+      // Igual que en el test 08 funcional: se ignoran imágenes de terceros (feeds de
+      // Instagram con URLs firmadas que vencen, widgets) y las propias se confirman por
+      // HTTP, para no alertar por una descarga cortada en CI cuando el archivo existe.
+      const hostTienda = new URL(site.baseUrl).hostname.replace(/^www\./, '');
+      const confirmadas = [];
+      for (const src of rotas) {
+        let url;
+        try { url = new URL(src, site.baseUrl); } catch { continue; }
+        if (!url.hostname.endsWith(hostTienda) && !/(^|\.)shopify(cdn)?\.com$/.test(url.hostname)) continue;
+        const status = await page.request.get(url.href, { timeout: 15000 }).then((r) => r.status()).catch(() => null);
+        if (status !== null && status >= 400) confirmadas.push(`${src} (HTTP ${status})`);
+      }
+      rotas = confirmadas;
       expect(rotas, `Imágenes rotas en el primer pantallazo mobile de ${site.name}:\n${rotas.slice(0, 10).map((s) => `  • ${s}`).join('\n')}`).toHaveLength(0);
     });
   });

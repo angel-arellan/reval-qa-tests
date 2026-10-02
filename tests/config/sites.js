@@ -372,6 +372,9 @@ module.exports = [
     id: 'THREEBIRDNEST',
     name: 'Three Bird Nest',
     baseUrl: 'https://www.threebirdnest.com',
+    // El "+" del drawer a veces no sube la cantidad en CI (stock bajo de la variante o
+    // AJAX lento del storefront headless). Ya generó alertas falsas: se valida best-effort.
+    quantityCheckSoft: true,
     search: { term: 'dress' },
     cookieBannerAcceptSelector: '#onetrust-accept-btn-handler',
     header: {

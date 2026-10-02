@@ -326,7 +326,11 @@ async function seleccionarVariante(page, pdp) {
           await page.locator(`label[for="${id}"]`).click({ force: true });
           await page.waitForTimeout(1000);
         }
-        return;
+        // Un talle agotado no siempre viene con `disabled` en el input (ej. Three Bird Nest:
+        // el talle S agotado es clickeable, pero el botón pasa a "Sold Out" y "Add to Cart"
+        // desaparece). Si después de elegir la variante el botón de compra no está
+        // disponible, se prueba con la siguiente en vez de fallar por falta de stock.
+        if (await botonCompraDisponible(page, pdp)) return;
       }
     }
     return;
@@ -347,6 +351,12 @@ async function seleccionarVariante(page, pdp) {
     await option.click({ timeout: 8000 });
     await page.waitForTimeout(600);
   }
+}
+
+async function botonCompraDisponible(page, pdp) {
+  if (!pdp.addToCartSelector) return true;
+  const btn = page.locator(pdp.addToCartSelector).first();
+  return (await btn.isVisible().catch(() => false)) && (await btn.isEnabled().catch(() => false));
 }
 
 async function leerCantidad(scope, quantityDisplay) {
@@ -929,6 +939,32 @@ for (const site of sites) {
 
         return { imgsRotas, hojasDeEstilo: document.styleSheets.length };
       });
+
+      // Una imagen con naturalWidth 0 no siempre está rota de verdad: en CI se vio que un
+      // banner de Sofía Sarkany quedaba así por una descarga cortada/lenta aunque el archivo
+      // existía (200), y que los feeds de Instagram embebidos (Three Bird Nest) usan URLs
+      // firmadas de cdninstagram.com que vencen solas. Para no alertar por eso: se ignoran
+      // las imágenes de terceros (widgets fuera del control de la tienda) y las propias se
+      // confirman pidiéndolas por HTTP — solo cuenta como rota si el servidor responde error.
+      const hostTienda = new URL(BASE_URL).hostname.replace(/^www\./, '');
+      const esPropia = (url) => {
+        try {
+          const h = new URL(url, BASE_URL).hostname;
+          return h.endsWith(hostTienda) || /(^|\.)shopify(cdn)?\.com$/.test(h);
+        } catch {
+          return false;
+        }
+      };
+      const confirmadas = [];
+      for (const src of diagnostico.imgsRotas.filter((u) => u !== '(sin src)' && esPropia(u))) {
+        const url = new URL(src, BASE_URL).href;
+        const status = await page.request
+          .get(url, { timeout: 15000 })
+          .then((r) => r.status())
+          .catch(() => null);
+        if (status !== null && status >= 400) confirmadas.push(`${src} (HTTP ${status})`);
+      }
+      diagnostico.imgsRotas = confirmadas;
 
       expect(
         diagnostico.imgsRotas,
