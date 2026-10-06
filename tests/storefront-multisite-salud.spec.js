@@ -19,6 +19,7 @@
 
 const { test, expect } = require('@playwright/test');
 const sites = require('./config/sites');
+const { pathPdpDisponible } = require('./helpers/pdp-disponible');
 const ajustes = require('./config/salud');
 
 test.use({
@@ -138,7 +139,7 @@ async function visitar(page, url) {
 // Resuelve la URL de una PDP real: la configurada, o el primer producto de la colección, o
 // el primer resultado de búsqueda.
 async function urlPdp(page, site) {
-  if (site.pdp?.path) return new URL(site.pdp.path, site.baseUrl).href;
+  if (site.pdp?.path) return new URL(await pathPdpDisponible(page.request, site), site.baseUrl).href;
   for (const path of [site.collection?.path, site.search?.term && `/search?q=${encodeURIComponent(site.search.term)}&type=product`]) {
     if (!path) continue;
     await visitar(page, new URL(path, site.baseUrl).href);

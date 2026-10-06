@@ -41,10 +41,12 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci || (sleep 20 && npm ci)
 
       - name: Install Playwright Browsers
-        run: npx playwright install --with-deps
+        # Reintento: el apt-get de GitHub a veces falla por un mirror caído (exit code 100)
+        # y eso disparaba una alerta de Slack sin que ningún test hubiera corrido.
+        run: npx playwright install --with-deps || (sleep 30 && npx playwright install --with-deps) || (sleep 60 && npx playwright install --with-deps)
 
       - name: Run Storefront Tests - ${{ matrix.name }}
         id: tests
@@ -53,21 +55,14 @@ jobs:
 
       # Anti falsas alarmas: si algo falló (ya con los 2 reintentos de Playwright, o sea 3
       # intentos), se espera unos minutos y se re-ejecuta SOLO lo que falló. Únicamente si
-      # vuelve a fallar (6 intentos en total, separados en el tiempo) el job queda en rojo y
+      # vuelve a fallar (6 intentos en total, separados en el tiempo) este paso queda en rojo y
       # se avisa a Slack. Filtra cortes de red, CDNs lentos y popups intermitentes de CI.
       - name: Confirmar fallas - ${{ matrix.name }}
         id: confirm
         if: steps.tests.outcome == 'failure'
-        continue-on-error: true
         run: |
           sleep 180
           npx playwright test tests/storefront-multisite.spec.js --grep "${{ matrix.id }}-" --reporter=html --last-failed
-
-      - name: Resultado final - ${{ matrix.name }}
-        if: steps.tests.outcome == 'failure' && steps.confirm.outcome != 'success'
-        run: |
-          echo "::error::Falla confirmada: los tests fallaron también en la re-ejecución de confirmación."
-          exit 1
 
       - name: Upload HTML Report - ${{ matrix.name }}
         if: always()

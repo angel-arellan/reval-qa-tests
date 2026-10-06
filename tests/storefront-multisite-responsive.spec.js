@@ -14,6 +14,7 @@
 
 const { test, expect, devices } = require('@playwright/test');
 const sites = require('./config/sites');
+const { pathPdpDisponible } = require('./helpers/pdp-disponible');
 const ajustes = require('./config/responsive');
 
 // defaultBrowserType no se puede fijar dentro de un describe; se descarta y se corre en
@@ -87,7 +88,7 @@ async function visitar(page, url) {
 }
 
 async function urlPdp(page, site) {
-  if (site.pdp?.path) return new URL(site.pdp.path, site.baseUrl).href;
+  if (site.pdp?.path) return new URL(await pathPdpDisponible(page.request, site), site.baseUrl).href;
   for (const path of [site.collection?.path, site.search?.term && `/search?q=${encodeURIComponent(site.search.term)}&type=product`]) {
     if (!path) continue;
     await visitar(page, new URL(path, site.baseUrl).href);

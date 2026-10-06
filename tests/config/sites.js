@@ -408,7 +408,9 @@ module.exports = [
       itemSelector: 'ul[aria-label="Cart items"] li',
       quantityIncreaseSelector: 'button[aria-label="Increase quantity"]',
       quantityDecreaseSelector: 'button[aria-label="Decrease quantity"]',
-      quantityDisplay: { type: 'text', selector: '[role="spinbutton"]' },
+      // Clase CSS-module estable entre los dos formatos que usó el storefront "Bite":
+      // <div role="spinbutton"> y, desde oct-2026 en Comfrt, <input readonly>.
+      quantityDisplay: { type: 'text', selector: '[class*="quantityInput"], [role="spinbutton"]' },
       checkoutButtonSelector: 'button:has-text("Checkout")',
     },
   },
@@ -539,7 +541,9 @@ module.exports = [
       quantityDecreaseSelector: 'button[aria-label="Decrease quantity"]',
       // La cantidad se muestra en un <div role="spinbutton" aria-valuenow="1">, no en un
       // <input>; +/- funcionan sin recargar la página (el form submit real es interceptado).
-      quantityDisplay: { type: 'text', selector: '[role="spinbutton"]' },
+      // Clase CSS-module estable entre los dos formatos que usó el storefront "Bite":
+      // <div role="spinbutton"> y, desde oct-2026 en Comfrt, <input readonly>.
+      quantityDisplay: { type: 'text', selector: '[class*="quantityInput"], [role="spinbutton"]' },
       checkoutButtonSelector: 'button:has-text("Checkout")',
     },
   },
@@ -648,7 +652,9 @@ module.exports = [
       itemSelector: 'ul[aria-label="Cart items"] li',
       quantityIncreaseSelector: 'button[aria-label="Increase quantity"]',
       quantityDecreaseSelector: 'button[aria-label="Decrease quantity"]',
-      quantityDisplay: { type: 'text', selector: '[role="spinbutton"]' },
+      // Clase CSS-module estable entre los dos formatos que usó el storefront "Bite":
+      // <div role="spinbutton"> y, desde oct-2026 en Comfrt, <input readonly>.
+      quantityDisplay: { type: 'text', selector: '[class*="quantityInput"], [role="spinbutton"]' },
       checkoutButtonSelector: 'button:has-text("Checkout")',
     },
   },

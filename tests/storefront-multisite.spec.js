@@ -1,5 +1,6 @@
 const { test, expect } = require('@playwright/test');
 const sites = require('./config/sites');
+const { pathPdpDisponible } = require('./helpers/pdp-disponible');
 
 test.use({
   userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
@@ -367,10 +368,13 @@ async function botonCompraDisponible(page, pdp) {
 async function leerCantidad(scope, quantityDisplay) {
   if (!quantityDisplay) return null;
   const el = scope.locator(quantityDisplay.selector).first();
-  if (quantityDisplay.type === 'input') {
-    return el.inputValue().catch(() => null);
-  }
-  return el.innerText().catch(() => null);
+  // Se lee igual sea un <input> o un elemento de texto (Comfrt pasó en oct-2026 de un
+  // <div role="spinbutton"> a un <input readonly> sin aviso), y SIEMPRE con timeout: sin él,
+  // si el selector deja de existir la lectura espera hasta agotar el timeout del test entero
+  // (2 min) y el fallo se reporta lejos de la causa real.
+  return el
+    .evaluate((e) => (e.tagName === 'INPUT' ? e.value : e.innerText).trim(), null, { timeout: 5000 })
+    .catch(() => null);
 }
 
 // El AJAX del carrito puede tardar más que una espera fija según el sitio; se hace polling
@@ -438,7 +442,8 @@ async function irA(page, url) {
 // y agrega al carrito. Se reutiliza tanto para el test de PDP como para el de carrito.
 async function agregarProductoAlCarrito(page, site, BASE_URL) {
   if (site.pdp.path) {
-    await irA(page, `${BASE_URL}${site.pdp.path}`);
+    const path = await pathPdpDisponible(page.request, { ...site, baseUrl: BASE_URL });
+    await irA(page, `${BASE_URL}${path}`);
   } else {
     await irA(page, `${BASE_URL}/search?q=${site.search.term}`);
     await aceptarCookies(page, site);
@@ -474,7 +479,8 @@ async function agregarProductoAlCarrito(page, site, BASE_URL) {
       .catch(() => null);
 
   let addToCartResponse = esperarRespuestaCartAdd();
-  await addBtn.click({ force: true });
+  await expect(addBtn, `No se encontró el botón de agregar al carrito en ${site.name}`).toBeVisible({ timeout: 15000 });
+  await addBtn.click({ force: true, timeout: 10000 });
   let respuesta = await addToCartResponse;
 
   // Algunos custom elements (ej. <buy-buttons> de Ailu y Andi) a veces no terminan de
