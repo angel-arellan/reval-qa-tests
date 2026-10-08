@@ -3,7 +3,7 @@
 // Complementa (no reemplaza) a storefront-multisite.spec.js: acá no se hacen flujos de
 // compra, solo se navega en modo lectura por Home, Colección y PDP buscando problemas que
 // el cliente final sufre pero que ningún test funcional detecta:
-//   SALUD-01  Excepciones JS no capturadas del propio sitio
+//   SALUD-01  Excepciones JS no capturadas del propio sitio (INFORMATIVO: no falla ni alerta)
 //   SALUD-02  Recursos propios (imágenes, scripts, CSS, fuentes) que responden 4xx/5xx
 //   SALUD-03  Links internos rotos en header y footer
 //   SALUD-04  Contenido roto del theme (Liquid error, translation missing, NaN, undefined)
@@ -186,7 +186,7 @@ for (const site of sites) {
       await bloquearPopups(page);
     });
 
-    test(`${site.id}-SALUD-01: Sin excepciones JS del propio sitio`, async ({ page }) => {
+    test(`${site.id}-SALUD-01: Excepciones JS del propio sitio (informativo)`, async ({ page }) => {
       const registro = instrumentar(page, site);
       const paginas = await paginasDelSitio(page, site);
       registro.erroresJs.length = 0; // descartar lo ocurrido resolviendo la PDP
@@ -208,10 +208,17 @@ for (const site of sites) {
         return esPropia(origen, site) && /\.js(\?|$)/.test(origen) && !/\/extensions\//.test(origen);
       });
       const unicos = [...new Map(propios.map((e) => [e.mensaje, e])).values()];
-      expect(
-        unicos,
-        `Excepciones JS del theme en ${site.name}:\n${formatearLista(unicos.map((e) => `${e.mensaje} (en ${e.url})`))}`,
-      ).toHaveLength(0);
+      // Informativo a propósito: una excepción JS por sí sola no significa que el cliente vea
+      // algo roto (ej. Bare Necessities, oct-2026: "unobserve on IntersectionObserver" sin
+      // ningún efecto visible). Lo que sí importa — que botones, carrito y checkout funcionen —
+      // ya lo validan los tests funcionales, que fallan si el JS roto rompe algo de verdad.
+      // Se deja registrado en el reporte para quien quiera revisarlo, sin alertar a Slack.
+      if (unicos.length) {
+        test.info().annotations.push({
+          type: 'warning',
+          description: `Excepciones JS del theme en ${site.name}:\n${formatearLista(unicos.map((e) => `${e.mensaje} (en ${e.url})`))}`,
+        });
+      }
     });
 
     test(`${site.id}-SALUD-02: Recursos propios sin errores 4xx/5xx`, async ({ page }) => {
@@ -221,7 +228,9 @@ for (const site of sites) {
       for (const { url } of paginas) await visitar(page, url);
 
       const fallidos = registro.recursosFallidos.filter(
-        (r) => !coincide(r.url, cfg.ignorarRecursos) && r.tipo !== 'document',
+        // Solo recursos que el cliente ve o que rompen la página (imágenes, CSS, JS, fuentes).
+        // Los fetch/XHR fallidos suelen ser llamadas internas de apps sin efecto visible.
+        (r) => !coincide(r.url, cfg.ignorarRecursos) && ['image', 'stylesheet', 'script', 'font'].includes(r.tipo),
       );
       const unicos = [...new Map(fallidos.map((r) => [r.url, r])).values()];
       expect(

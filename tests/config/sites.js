@@ -617,45 +617,44 @@ module.exports = [
     name: 'Bare Necessities',
     baseUrl: 'https://www.barenecessities.com',
     search: { term: 'bra' },
+    // El 7-oct-2026 la tienda migró a un theme nuevo (header, PDP y carrito distintos).
+    // Selectores re-mapeados en vivo sobre el sitio nuevo.
     header: {
       hasMegaMenu: true,
-      hoverSelector: 'button[aria-label="Bras submenu"]',
-      submenuSelector: '#nav-submenu-1',
-      subcategoryLinkSelector: '#nav-submenu-1 a[href="/collections/t-shirt-bras"]',
+      hoverSelector: '#nav-level1-bras',
+      submenuSelector: 'li:has(> #nav-level1-bras) .megamenu__linklist-column',
+      subcategoryLinkSelector: 'li:has(> #nav-level1-bras) a[href="/collections/t-shirt-bras"]',
       visibilityCheck: 'isVisible',
     },
     collection: {
       path: '/collections/bras',
       filters: {
         enabled: true,
-        toggleSelector: 'button:has-text("Band Size")',
-        labelSelector: 'button.pinnedFilterItemLabel__1f06ef42:has-text("32")',
-        applyButtonSelector: 'button.pinnedFilterApplyButton__1f06ef42',
-        urlChangePattern: /band_size=/i,
+        // Acordeón "Band Size" del panel lateral; el filtro aplica al instante (sin botón).
+        // :visible porque el theme duplica el panel de filtros (desktop/mobile oculto).
+        sectionToggleSelector: 'button.br-accordion-item__toggle:has-text("Band Size"):visible',
+        labelSelector: 'button.br-option[aria-label="32"]:visible',
+        urlChangePattern: /band_size=32/i,
       },
     },
     pdp: {
-      path: '/products/elomi-matilda-side-support-plunge-bra-el8900?variant=44510989516913',
-      // Selector custom tipo combobox+listbox ARIA (ver soporte en seleccionarVariante() del
-      // spec): un <button role="combobox" aria-haspopup="listbox"> que al clickear despliega
-      // una lista de opciones con position:fixed.
-      variantType: 'combobox-listbox',
-      variantInputSelector: 'button.dropdownTrigger__b664e42e.placeholder__b664e42e:has-text("Size")',
-      variantOptionSelector: '[role="option"]',
+      path: '/products/elomi-matilda-side-support-plunge-bra-el8900',
+      // Color + band size + cup size como botones; ver 'option-buttons' en el spec.
+      variantType: 'option-buttons',
+      variantInputSelector: 'button.br-option, button.br-swatch',
       quantitySelector: null,
-      addToCartSelector: 'button:has-text("Add to Cart")',
+      addToCartSelector: 'button.br-add-to-cart__button',
     },
     cart: {
-      // Mismo storefront headless custom "Bite" que COMFRT_COM y THREEBIRDNEST.
       type: 'drawer',
-      containerSelector: '.cartContents, #cart-checkout-content',
-      itemSelector: 'ul[aria-label="Cart items"] li',
-      quantityIncreaseSelector: 'button[aria-label="Increase quantity"]',
-      quantityDecreaseSelector: 'button[aria-label="Decrease quantity"]',
-      // Clase CSS-module estable entre los dos formatos que usó el storefront "Bite":
-      // <div role="spinbutton"> y, desde oct-2026 en Comfrt, <input readonly>.
-      quantityDisplay: { type: 'text', selector: '[class*="quantityInput"], [role="spinbutton"]' },
-      checkoutButtonSelector: 'button:has-text("Checkout")',
+      // El wrapper .br-inline-cart mide 0px de alto (Playwright lo ve oculto); el panel
+      // real con items y botón de checkout es .br-inline-cart__contents.
+      containerSelector: '.br-inline-cart__contents',
+      itemSelector: '.br-cart-product-tile',
+      quantityIncreaseSelector: 'button[aria-label="Increment Quantity"]',
+      quantityDecreaseSelector: 'button[aria-label="Decrement Quantity"]',
+      quantityDisplay: { type: 'input', selector: '.br-quantity-selector input' },
+      checkoutButtonSelector: 'button.checkoutBtn',
     },
   },
   {

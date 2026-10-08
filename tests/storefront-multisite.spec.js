@@ -302,6 +302,36 @@ async function seleccionarVariante(page, pdp) {
   const total = await opciones.count();
   if (total === 0) return;
 
+  // Selector de botones por opción (ej. Bare Necessities desde oct-2026: color + band size +
+  // cup size como <button aria-label="34">). Muchas combinaciones están agotadas y el botón
+  // de compra queda en "Unavailable", así que en vez de probar al azar se consulta el JSON
+  // del producto (/products/<handle>.js), se elige una variante CON STOCK y se clickea cada
+  // uno de sus valores. Los valores que ya están seleccionados (aria-pressed=true) no se
+  // tocan: el swatch de color de algunos temas navega a otro producto al clickearlo.
+  if (pdp.variantType === 'option-buttons') {
+    const handle = new URL(page.url()).pathname.split('/products/')[1]?.split('/')[0];
+    const prod = await page.request
+      .get(new URL(`/products/${handle}.js`, page.url()).href, { timeout: 15000 })
+      .then((r) => r.json())
+      .catch(() => null);
+    if (!prod) return;
+    const pressed = await page
+      .locator(`:is(${pdp.variantInputSelector})[aria-pressed="true"]`)
+      .evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))
+      .catch(() => []);
+    const variante =
+      prod.variants.find((v) => v.available && v.options.every((o, i) => i > 0 || pressed.includes(o))) ||
+      prod.variants.find((v) => v.available);
+    if (!variante) return;
+    for (const valor of variante.options) {
+      const opt = page.locator(`:is(${pdp.variantInputSelector})[aria-label="${valor.replace(/"/g, '\\"')}"]`).first();
+      if (!(await opt.count()) || (await opt.getAttribute('aria-pressed')) === 'true') continue;
+      await opt.click({ force: true });
+      await page.waitForTimeout(1000);
+    }
+    return;
+  }
+
   if (pdp.variantType === 'aria-radio-button') {
     for (let i = 0; i < total; i++) {
       const opt = opciones.nth(i);
