@@ -29,6 +29,8 @@ jobs:
     needs: discover-sites
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_JSON_OUTPUT_NAME: resultados.json
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.discover-sites.outputs.matrix) }}
@@ -51,7 +53,7 @@ jobs:
       - name: Run Storefront Tests - ${{ matrix.name }}
         id: tests
         continue-on-error: true
-        run: npx playwright test tests/storefront-multisite.spec.js --grep "${{ matrix.id }}-" --reporter=html
+        run: npx playwright test tests/storefront-multisite.spec.js --grep "${{ matrix.id }}-" --reporter=html,json
 
       # Anti falsas alarmas: si algo falló (ya con los 2 reintentos de Playwright, o sea 3
       # intentos), se espera unos minutos y se re-ejecuta SOLO lo que falló. Únicamente si
@@ -62,8 +64,7 @@ jobs:
         if: steps.tests.outcome == 'failure'
         run: |
           sleep 180
-          npx playwright test tests/storefront-multisite.spec.js --grep "${{ matrix.id }}-" --reporter=html --last-failed
-
+          npx playwright test tests/storefront-multisite.spec.js --grep "${{ matrix.id }}-" --reporter=html,json --last-failed
       - name: Upload HTML Report - ${{ matrix.name }}
         if: always()
         uses: actions/upload-artifact@v4
@@ -72,10 +73,13 @@ jobs:
           path: playwright-report/
           retention-days: 30
 
+      # Alerta unificada (.github/scripts/alerta-slack.js): solo si la falla se CONFIRMÓ en la
+      # segunda pasada, y dice qué test falló y por qué. Fallas del entorno de GitHub (npm,
+      # instalación del navegador) no alertan: no son problemas de la tienda.
       - name: Notify Slack (Management) on Failure - ${{ matrix.name }}
-        if: failure()
+        if: failure() && steps.confirm.outcome == 'failure'
         continue-on-error: true
-        run: |
-          curl -X POST -H 'Content-type: application/json' \
-          --data "{\"text\": \"🚨 *ALERTA DE STOREFRONT - ${{ matrix.name }}*\n\n⚠️ *Atención Management:* Fallo detectado en la tienda online productiva (*${{ matrix.baseUrl }}*).\n\n📌 *Módulos que pudieron haber fallado:*\n• Home & Scroll\n• Buscador\n• Catálogo\n• PDP / Carrito & Checkout\n• Login & Políticas\"}" \
-          "${{ secrets.SLACK_WEBHOOK_MULTISITE_MANAGEMENT }}"
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_MULTISITE_MANAGEMENT }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node .github/scripts/alerta-slack.js "ALERTA DE STOREFRONT" "${{ matrix.name }}" "${{ matrix.baseUrl }}"

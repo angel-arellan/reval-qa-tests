@@ -39,6 +39,8 @@ jobs:
     needs: discover-sites
     timeout-minutes: 45
     runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_JSON_OUTPUT_NAME: resultados.json
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.discover-sites.outputs.matrix) }}
@@ -62,8 +64,6 @@ jobs:
         id: tests
         continue-on-error: true
         run: npx playwright test tests/storefront-multisite-salud.spec.js tests/storefront-multisite-responsive.spec.js --grep "${{ matrix.id }}-(SALUD|RESP)-" --reporter=html,json
-        env:
-          PLAYWRIGHT_JSON_OUTPUT_NAME: resultados.json
 
       # Anti falsas alarmas: si algo falló (ya con los 2 reintentos de Playwright, o sea 3
       # intentos), se espera unos minutos y se re-ejecuta SOLO lo que falló. Únicamente si
@@ -72,8 +72,6 @@ jobs:
       - name: Confirmar fallas - ${{ matrix.name }}
         id: confirm
         if: steps.tests.outcome == 'failure'
-        env:
-          PLAYWRIGHT_JSON_OUTPUT_NAME: resultados.json
         run: |
           sleep 180
           npx playwright test tests/storefront-multisite-salud.spec.js tests/storefront-multisite-responsive.spec.js --grep "${{ matrix.id }}-(SALUD|RESP)-" --reporter=html,json --last-failed
@@ -86,35 +84,13 @@ jobs:
           path: playwright-report/
           retention-days: 30
 
+      # Alerta unificada (.github/scripts/alerta-slack.js): solo si la falla se CONFIRMÓ en la
+      # segunda pasada, y dice qué test falló y por qué. Fallas del entorno de GitHub (npm,
+      # instalación del navegador) no alertan: no son problemas de la tienda.
       - name: Notify Slack (Management) on Failure - ${{ matrix.name }}
-        if: failure()
+        if: failure() && steps.confirm.outcome == 'failure'
         continue-on-error: true
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_MULTISITE_MANAGEMENT }}
-          SITE_NAME: ${{ matrix.name }}
-          SITE_URL: ${{ matrix.baseUrl }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          # Arma la lista de chequeos que fallaron leyendo el reporte JSON de Playwright.
-          FALLIDOS=$(node -e "
-            const fs = require('fs');
-            if (!fs.existsSync('resultados.json')) { console.log('• (no se pudo leer el reporte)'); process.exit(0); }
-            const r = JSON.parse(fs.readFileSync('resultados.json', 'utf8'));
-            const out = [];
-            const walk = (s) => { (s.suites || []).forEach(walk); (s.specs || []).forEach((sp) => {
-              const ok = sp.tests.every((t) => ['expected', 'skipped', 'flaky'].includes(t.status));
-              if (!ok) out.push('• ' + sp.title.replace(/^[A-Z0-9_]+-/, ''));
-            }); };
-            (r.suites || []).forEach(walk);
-            console.log(out.join('\n') || '• (error general del job)');
-          ")
-          PAYLOAD=$(node -e "
-            const [name, url, fallidos, run] = process.argv.slice(1);
-            console.log(JSON.stringify({ text:
-              '🩺 *ALERTA DE SALUD TÉCNICA / RESPONSIVE - ' + name + '*\n\n' +
-              '⚠️ *Atención Management:* Problemas técnicos detectados en la tienda productiva (*' + url + '*).\n\n' +
-              '📌 *Chequeos que fallaron:*\n' + fallidos + '\n\n' +
-              '🔗 Reporte: ' + run
-            }));
-          " "$SITE_NAME" "$SITE_URL" "$FALLIDOS" "$RUN_URL")
-          curl -X POST -H 'Content-type: application/json' --data "$PAYLOAD" "$SLACK_WEBHOOK"
+        run: node .github/scripts/alerta-slack.js "ALERTA DE SALUD TÉCNICA / RESPONSIVE" "${{ matrix.name }}" "${{ matrix.baseUrl }}"

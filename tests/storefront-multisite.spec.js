@@ -72,7 +72,10 @@ const POPUP_SELECTOR =
 // solo como panel flotante a la izquierda de la colección, justo encima del filtro de Talle,
 // y el click del filtro nunca llega ("El filtro no modificó la URL"). Se carga desde
 // adsagentclientafd-*.azurefd.net; se bloquea el dominio igual que los demás vendors.
-const DOMINIOS_POPUP_BLOQUEADOS = [/alia-prod\.com/, /attn\.tv/, /osano\.com/, /adsagentclient[\w-]*\.[\w.-]*azurefd\.net/];
+// cookiehub: CMP de Machinery Masters. Al borrar su diálogo quedaba su fondo semitransparente
+// tapando toda la página y robando el hover del mega menú (el click en la subcategoría no
+// navegaba). Bloqueando el script el banner directamente no aparece.
+const DOMINIOS_POPUP_BLOQUEADOS = [/alia-prod\.com/, /attn\.tv/, /osano\.com/, /adsagentclient[\w-]*\.[\w.-]*azurefd\.net/, /cookiehub\./];
 
 // Algunos temas implementan su drawer de carrito REAL como un diálogo accesible nativo
 // (<div role="dialog" aria-modal="true">) — exactamente el mismo patrón de marcado que usan
@@ -263,6 +266,40 @@ async function validarSinErrores(page, contexto) {
   expect(pageTitle, `Bloqueo en ${contexto}`).not.toContain('Just a moment...');
   expect(bodyText, `Error 500 en ${contexto}`).not.toContain('Error 500');
   expect(bodyText, `Error 404 en ${contexto}`).not.toContain('404 Not Found');
+  // La página 404 de Shopify no siempre dice "404 Not Found" en el cuerpo (cada theme la
+  // diseña distinto), pero el <title> sí la identifica. Sin esto, un link o colección rota
+  // que cae en la 404 del theme pasaba como página válida.
+  expect(pageTitle, `${contexto} cayó en una página "no encontrada" (404): ${page.url()}`).not.toMatch(
+    /(^|\W)404(\W|$)|page not found|p[aá]gina no encontrada/i
+  );
+}
+
+// Clickea un link y exige que la navegación ocurra de verdad (la URL cambia y la página nueva
+// no es un error). Es la validación central de "el botón/link lleva a donde tiene que llevar".
+// Usa clickResiliente (no un .click() plano): en menús que abren con una transición CSS
+// (ej. machinerymasterslive.com, opacity con transition) un click justo durante la
+// transición puede caer en la ventana en que Playwright considera el elemento "not stable".
+async function clickYValidarNavegacion(page, link, contexto, patronUrl, { viaMouse = false } = {}) {
+  const antes = page.url();
+  const caja = viaMouse ? await link.boundingBox().catch(() => null) : null;
+  if (caja) {
+    // Menús que se cierran si el puntero "salta" (ej. Machinery Masters: el ítem es un <div>
+    // con onclick dentro de un panel que solo existe mientras hay hover): se lleva el mouse
+    // hasta el ítem como haría un usuario y se clickea ahí.
+    await page.mouse.move(caja.x + Math.min(10, caja.width / 2), caja.y + caja.height / 2, { steps: 5 });
+    await page.waitForTimeout(500);
+    await page.mouse.click(caja.x + Math.min(10, caja.width / 2), caja.y + caja.height / 2);
+  } else {
+    await clickResiliente(page, link);
+  }
+  // 30s: algunos sitios (ej. Machinery Masters) hacen una transición animada de salida antes
+  // de navegar; la navegación ocurre, pero tarda.
+  await page.waitForURL((u) => u.href !== antes, { timeout: 30000 }).catch(() => {});
+  await page.waitForLoadState('domcontentloaded').catch(() => {});
+  expect(page.url(), `${contexto}: el click no llevó a ninguna página (la URL no cambió)`).not.toBe(antes);
+  if (patronUrl) expect(page.url(), `${contexto}: llevó a una página inesperada`).toMatch(patronUrl);
+  await neutralizarPopups(page);
+  await validarSinErrores(page, contexto);
 }
 
 async function primeroVisible(locator) {
@@ -629,15 +666,32 @@ for (const site of sites) {
 
         if (menuAbierto) {
           const sublink = await primeroVisible(page.locator(site.header.subcategoryLinkSelector));
-          // clickResiliente (no un .click() plano): en menús que abren con una transición CSS
-          // (ej. machinerymasterslive.com, opacity con transition) un click justo durante la
-          // transición puede caer en la ventana en que Playwright considera el elemento "not
-          // stable" todavía — confirmado en vivo con ~1/3 de intentos fallando sin retry.
-          await clickResiliente(page, sublink);
-          await page.waitForLoadState('domcontentloaded');
-          await neutralizarPopups(page);
-          await validarSinErrores(page, 'Subcategoría del Header');
+          await clickYValidarNavegacion(page, sublink, 'Subcategoría del Header', null, {
+            viaMouse: site.header.subcategoryClickMethod === 'mouse',
+          });
         }
+      } else {
+        // Sitios sin mega menú: igual se valida que una categoría/sección del header navegue.
+        // Se elige el primer link interno visible del header que no sea el logo/home, cuenta,
+        // carrito ni búsqueda.
+        await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+        await neutralizarPopups(page);
+        const origen = new URL(BASE_URL).origin;
+        const actual = new URL(page.url()).pathname;
+        const links = page.locator('header a[href], nav a[href]');
+        let destino = null;
+        for (let i = 0; i < Math.min(await links.count(), 60) && !destino; i++) {
+          const l = links.nth(i);
+          const href = await l.getAttribute('href').catch(() => null);
+          if (!href || /^(tel:|mailto:|#|javascript:)/i.test(href)) continue;
+          if (!(await l.isVisible().catch(() => false))) continue;
+          let u;
+          try { u = new URL(href, BASE_URL); } catch { continue; }
+          if (u.origin !== origen || u.pathname === '/' || u.pathname === actual) continue;
+          if (/\/(account|cart|search)/i.test(u.pathname)) continue;
+          destino = l;
+        }
+        if (destino) await clickYValidarNavegacion(page, destino, 'Link de categoría del Header');
       }
     });
 
@@ -824,6 +878,36 @@ for (const site of sites) {
           expect(urlDespues.toLowerCase(), `La URL no refleja un filtro aplicado en ${site.name}`).toMatch(patronUrl);
         }
       }
+
+      // Lo que el cliente hace en una categoría: ver productos y entrar a uno. Se vuelve a la
+      // colección limpia (sin filtro) y se exige que haya productos y que uno abra su PDP.
+      await irA(page, `${BASE_URL}${site.collection.path}`);
+      await aceptarCookies(page, site);
+      await neutralizarPopups(page);
+      await validarSinErrores(page, 'Catálogo');
+      // Solo links de producto de la GRILLA: se excluyen header/nav/footer (los mega menús
+      // suelen traer links a productos ocultos o destacados, visto en Ena Sport y Bare
+      // Necessities) y los links sin tamaño. Se marcan en el DOM para clickear el primero.
+      await expect
+        .poll(
+          () =>
+            page.evaluate(() => {
+              const links = [...document.querySelectorAll('a[href*="/products/"]')].filter((a) => {
+                // Solo etiquetas semánticas e ids: matchear por clase es demasiado amplio (el
+                // <body> de varios themes tiene clases como "site-header-sticky").
+                if (a.closest('header, nav, footer, [role="dialog"], [role="navigation"], [id*="header" i], [id*="mega" i]')) return false;
+                const r = a.getBoundingClientRect();
+                return r.width > 0 && r.height > 0 && getComputedStyle(a).visibility !== 'hidden';
+              });
+              links.forEach((a) => a.setAttribute('data-qa-producto', ''));
+              return links.length > 0;
+            }),
+          { message: `La colección ${site.collection.path} de ${site.name} no muestra ningún producto`, timeout: 15000 }
+        )
+        .toBe(true);
+      const producto = page.locator('[data-qa-producto]').first();
+      await producto.scrollIntoViewIfNeeded().catch(() => {});
+      await clickYValidarNavegacion(page, producto, 'Producto desde la colección', /\/products\//);
     });
 
     test(`${site.id}-04: PDP, Carrito y Checkout - Flujo Completo`, async ({ page }) => {

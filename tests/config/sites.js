@@ -613,51 +613,6 @@ module.exports = [
     },
   },
   {
-    id: 'BARE_NECESSITIES',
-    name: 'Bare Necessities',
-    baseUrl: 'https://www.barenecessities.com',
-    search: { term: 'bra' },
-    // El 7-oct-2026 la tienda migró a un theme nuevo (header, PDP y carrito distintos).
-    // Selectores re-mapeados en vivo sobre el sitio nuevo.
-    header: {
-      hasMegaMenu: true,
-      hoverSelector: '#nav-level1-bras',
-      submenuSelector: 'li:has(> #nav-level1-bras) .megamenu__linklist-column',
-      subcategoryLinkSelector: 'li:has(> #nav-level1-bras) a[href="/collections/t-shirt-bras"]',
-      visibilityCheck: 'isVisible',
-    },
-    collection: {
-      path: '/collections/bras',
-      filters: {
-        enabled: true,
-        // Acordeón "Band Size" del panel lateral; el filtro aplica al instante (sin botón).
-        // :visible porque el theme duplica el panel de filtros (desktop/mobile oculto).
-        sectionToggleSelector: 'button.br-accordion-item__toggle:has-text("Band Size"):visible',
-        labelSelector: 'button.br-option[aria-label="32"]:visible',
-        urlChangePattern: /band_size=32/i,
-      },
-    },
-    pdp: {
-      path: '/products/elomi-matilda-side-support-plunge-bra-el8900',
-      // Color + band size + cup size como botones; ver 'option-buttons' en el spec.
-      variantType: 'option-buttons',
-      variantInputSelector: 'button.br-option, button.br-swatch',
-      quantitySelector: null,
-      addToCartSelector: 'button.br-add-to-cart__button',
-    },
-    cart: {
-      type: 'drawer',
-      // El wrapper .br-inline-cart mide 0px de alto (Playwright lo ve oculto); el panel
-      // real con items y botón de checkout es .br-inline-cart__contents.
-      containerSelector: '.br-inline-cart__contents',
-      itemSelector: '.br-cart-product-tile',
-      quantityIncreaseSelector: 'button[aria-label="Increment Quantity"]',
-      quantityDecreaseSelector: 'button[aria-label="Decrement Quantity"]',
-      quantityDisplay: { type: 'input', selector: '.br-quantity-selector input' },
-      checkoutButtonSelector: 'button.checkoutBtn',
-    },
-  },
-  {
     id: 'INTI_TEA_PROFESIONAL',
     name: 'Inti Tea Profesional',
     baseUrl: 'https://profesional.inti-tea.com',
@@ -721,6 +676,8 @@ module.exports = [
       // usuario real — mismo patrón que ENASPORT/LUSSOCLOUD.
       softCheck: true,
       subcategoryLinkSelector: 'p:has-text("Bakery Equipment")',
+      // Los ítems del mega menú son <div onclick> (no <a>): hay que llegar con el mouse.
+      subcategoryClickMethod: 'mouse',
       visibilityCheck: 'isVisible',
     },
   },
