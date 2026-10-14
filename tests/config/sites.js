@@ -160,15 +160,13 @@ module.exports = [
     knownProductionBug: 'Bug real de producción en lussocloud.com: error de JS en vendor.js deja el botón Add to Cart inclickeable (rect 0x0) tras elegir variante.',
     header: {
       hasMegaMenu: true,
-      openMethod: 'click', // este menú es un disclosure accesible (aria-expanded), no usa CSS :hover
-      hoverSelector: 'a[aria-controls="desktop-menu-7"]',
-      submenuSelector: '#desktop-menu-7',
-      subcategoryLinkSelector: '#desktop-menu-7 a',
+      openMethod: 'hover', // el ítem del menú ahora es un link: abre el mega menú al pasar el mouse y el click navega a /pages/comfy-collab
+      // El theme numera los mega menús según su posición (desktop-menu-6, -7…) y el número
+      // cambia cada vez que el cliente agrega o quita un ítem del menú: se matchea por prefijo.
+      hoverSelector: 'a[aria-controls^="desktop-menu-"]',
+      submenuSelector: '[id^="desktop-menu-"].mega-menu',
+      subcategoryLinkSelector: '[id^="desktop-menu-"].mega-menu a',
       visibilityCheck: 'isVisible',
-      // "Comfy Collabs" no abre de forma confiable con clicks/hover sintéticos en Chromium
-      // headless (verificado manualmente: la página funciona bien, no es un bug real del
-      // sitio). Se valida best-effort para no generar alertas falsas por esto en cada corrida.
-      softCheck: true,
     },
     collection: {
       path: '/collections/womens',

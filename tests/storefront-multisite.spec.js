@@ -637,7 +637,9 @@ for (const site of sites) {
           await aceptarCookies(page, site);
           await neutralizarPopups(page);
           const trigger = page.locator(site.header.hoverSelector).first();
-          const box = await trigger.boundingBox().catch(() => null);
+          // Con timeout: si el selector del menú dejó de existir (el cliente cambió el menú),
+          // boundingBox() sin límite esperaba hasta el timeout global del test.
+          const box = await trigger.boundingBox({ timeout: 5000 }).catch(() => null);
           if (box) {
             await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 5 });
             if (site.header.openMethod === 'click') {
@@ -648,7 +650,7 @@ for (const site of sites) {
           await page.waitForTimeout(1200);
           menuAbierto = await submenuVisible(page, site.header);
           if (!menuAbierto) {
-            const ariaExpanded = await trigger.getAttribute('aria-expanded').catch(() => null);
+            const ariaExpanded = await trigger.getAttribute('aria-expanded', { timeout: 2000 }).catch(() => null);
             menuAbierto = ariaExpanded === 'true';
           }
         }
