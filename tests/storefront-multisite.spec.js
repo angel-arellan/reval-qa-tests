@@ -13,7 +13,16 @@ const POPUP_SELECTOR =
   '[id*="chat-widget"], [class*="chat-widget"], [id*="chat-launcher"], [class*="chat-launcher"],' +
   '[id*="gorgias-chat"], [id*="tidio"], [id*="intercom"], [class*="intercom"], iframe[title*="chat" i],' +
   '[id*="onetrust"], [class*="onetrust"], [id*="cookiebot"], [class*="cookiebot"], .modal-backdrop,' +
-  'pandectes-cmp, [aria-label="Cookie consent" i], [id*="recart"], [id*="ltkpopup"]';
+  'pandectes-cmp, [aria-label="Cookie consent" i], [id*="recart"], [id*="ltkpopup"], #wc-reco, .popupKeepLocation';
+// .popupKeepLocation: modal de geolocalización de starsandhoney.com ("We noticed you are from
+// Argentina · Continue in this site / Visit AR shop"), con backdrop a pantalla completa. Sale
+// con demora y según la IP; en un run de CI (oct-2026) tapó la grilla de /collections/all y el
+// click al producto cayó en el backdrop ("la URL no cambió").
+// #wc-reco: popup de recomendaciones del theme de sofiasarkany.com ("Sabemos que no es fácil
+// elegir", con productos de Emarsys/Scarab). Aparece unos segundos después de agregar al
+// carrito, encima del drawer, y tapa los botones +/−: el click del test caía en el popup y la
+// cantidad "no bajaba" (oct-2026). Usa role="dialog" pero aria-modal="false", así que el
+// patrón genérico de diálogos no lo alcanzaba. Un cliente real lo cierra con la ×.
 // [id*="ltkpopup"]: vendor de marketing ("LTK") visto en barenecessities.com. Inyecta
 // #ltkpopup-container (role="dialog" aria-modal="true", ya cubierto por el patrón genérico de
 // arriba) pero TAMBIÉN #ltkpopup-overlay: un <div aria-hidden="true"> invisible que queda

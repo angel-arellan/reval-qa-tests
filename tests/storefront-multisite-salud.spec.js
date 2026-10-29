@@ -313,7 +313,15 @@ for (const site of sites) {
       // Algunas tiendas redirigen a propósito las URLs inexistentes a una página real (ej.
       // threebirdnest.com → /collections/clothing, vía app de redirects de Shopify): es una
       // decisión del cliente, no un bug. Se acepta si terminó en OTRA URL que carga bien.
-      const redirigio = new URL(page.url()).pathname !== new URL(url).pathname;
+      // Tiendas con Shopify Markets redirigen según el país de la IP a la misma ruta con
+      // prefijo de idioma/país (ej. rbxactive.com → /en-ca/pages/... cuando el runner de
+      // GitHub sale por Canadá). Eso no es "redirigir a otra página": la ruta sigue siendo la
+      // inexistente y lo correcto es que devuelva 404, igual que sin prefijo.
+      const pathFinal = new URL(page.url()).pathname;
+      const pathPedido = new URL(url).pathname;
+      const prefijo = pathFinal.endsWith(pathPedido) ? pathFinal.slice(0, pathFinal.length - pathPedido.length) : null;
+      const soloPrefijoLocale = prefijo !== null && /^\/[a-z]{2}(-[a-z]{2})?$/i.test(prefijo);
+      const redirigio = pathFinal !== pathPedido && !soloPrefijoLocale;
       if (redirigio) {
         expect(response?.status(), `La URL inexistente ${url} redirigió a ${page.url()}, que no carga bien`).toBeLessThan(400);
       } else {
