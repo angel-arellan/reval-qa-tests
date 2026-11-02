@@ -295,16 +295,12 @@ module.exports = [
       path: '/collections/proteinas',
       filters: {
         enabled: true,
-        toggleSelector: '#accordion-filter-v-option-sabor:visible summary',
-        // El sitio duplica el mismo id de sección (drawer mobile + sidebar desktop) y el
-        // sufijo numérico de sección cambia con el tiempo, así que en vez de un id exacto se
-        // matchea por el final del atributo `for` (evita el falso positivo de "chocolate-mousse").
-        labelSelector: 'label[for$="filter-v-option-sabor-chocolate"]',
-        // Confirmado en vivo con scripts aislados, código idéntico, corridos varias veces
-        // seguidas sin ningún cambio de nuestro lado: el click a veces dispara el listener de
-        // "change" del widget de filtro y a veces no — condición de carrera del propio JS del
-        // sitio, no un problema de selectores (mismo patrón que header.softCheck arriba).
-        softCheck: true,
+        // Desde el 02-nov el sitio sacó los filtros nativos (Search & Discovery) de todas las
+        // colecciones y los reemplazó por una fila de pills "Filtrá por objetivo" (sección
+        // ena_filter): filtra la grilla del lado del cliente y deja la URL con #f=<objetivo>
+        // vía history.replaceState. "Recuperación" filtra un subconjunto real de proteínas.
+        labelSelector: 'button[data-ecf-pill="recuperacion"]',
+        urlChangePattern: /#f=recuperacion/i,
       },
     },
     pdp: {
@@ -346,7 +342,9 @@ module.exports = [
       path: '/collections/promociones',
       filters: {
         enabled: true,
-        toggleSelector: 'summary[aria-controls="Facet-1-template--19597944651836__product-grid"]',
+        // Por aria-label y no por aria-controls: el id del template (Facet-1-template--<n>)
+        // cambia cada vez que la tienda republica el theme, y el summary ya no trae aria-controls.
+        toggleSelector: 'summary.facets__summary[aria-label^="Disponibilidad"]',
         labelSelector: 'label[for="Filter-filter.v.availability-1"]',
       },
     },
