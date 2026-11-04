@@ -47,7 +47,9 @@ module.exports = [
       filters: {
         enabled: true,
         toggleSelector: 'button[aria-controls="color-collection-filter-sidebar"]',
-        labelSelector: 'label[for="CollectionFilter-color-1-sidebar"]',
+        // Por contenedor y no por id: desde el 03-nov el filtro de color usa metaobjects
+        // (CollectionFilter-color-gid-shopify-metaobject-<n>) en vez del índice (color-1).
+        labelSelector: '#color-collection-filter-sidebar label.collection-filters__option-label',
       },
     },
     pdp: {
