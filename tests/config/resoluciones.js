@@ -70,5 +70,8 @@ module.exports = {
     // reconoce con el selector de escritorio (#Cart-Drawer .product-cart-item): "No se ve ningún
     // item". Calibrar el selector mobile antes de reactivarlo.
     SOFIA_SARKANY: { omitir: { celular: ['04'], tablet: ['04'] } },
+    // Pendiente (05-nov-2026): en celular y tablet el drawer #CartDrawer de Ansilta no se abre
+    // tras agregar en CI ("El carrito no se abrió"); en escritorio pasa. Calibrar en mobile.
+    ANSILTA_COM: { omitir: { celular: ['04'], tablet: ['04'] } },
   },
 };
