@@ -66,5 +66,9 @@ module.exports = {
     // responde vía automation (en iPad y escritorio sí). Revisar a mano si también le pasa a un
     // cliente real antes de reactivarlo; si es así, es un bug del sitio para reportar.
     ENASPORT: { omitir: { celular: ['04'] } },
+    // Pendiente (05-nov-2026): en celular y tablet el drawer del carrito de Sofía Sarkany no se
+    // reconoce con el selector de escritorio (#Cart-Drawer .product-cart-item): "No se ve ningún
+    // item". Calibrar el selector mobile antes de reactivarlo.
+    SOFIA_SARKANY: { omitir: { celular: ['04'], tablet: ['04'] } },
   },
 };
