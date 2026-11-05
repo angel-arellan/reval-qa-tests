@@ -1,0 +1,82 @@
+name: Informe semanal de QA por mail (lunes)
+
+# Manda los lunes un mail con el resumen de la semana anterior (lunes a domingo) de todos los
+# proyectos, con un PDF por proyecto escrito para reenviar al cliente. Ver
+# .github/scripts/reporte-semanal.js. Solo lee resultados de GitHub Actions: no corre tests.
+#
+# Secrets: MAIL_USERNAME (cuenta de Gmail que envía), MAIL_PASSWORD (contraseña de aplicación
+# de esa cuenta, no la contraseña normal) y REPORTE_DESTINATARIOS (mails separados por coma).
+#
+# GitHub a veces no dispara los horarios programados, por eso hay tres horarios el lunes: el
+# primero que corre manda el informe y los siguientes ven que ya salió y no hacen nada.
+# Los PDF NO se suben como artifact: el repo es público y son informes de clientes.
+
+on:
+  schedule:
+    - cron: '41 11 * * 1' # lunes 08:41 (Argentina)
+    - cron: '41 13 * * 1' # lunes 10:41, por si no corrió el anterior
+    - cron: '41 16 * * 1' # lunes 13:41, por si no corrió ninguno
+  workflow_dispatch:
+    inputs:
+      enviar_a:
+        description: 'Mandar solo a este mail (para probar). Vacío = destinatarios del secret REPORTE_DESTINATARIOS'
+        required: false
+      ultimos_dias:
+        description: 'Usar los últimos N días hasta ahora en vez de la semana anterior completa (ej. 7)'
+        required: false
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: reporte-semanal
+  cancel-in-progress: false
+
+jobs:
+  informe:
+    name: Armar y enviar informe semanal
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: ¿Ya se mandó hoy?
+        id: ya
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          N=$(gh api "repos/${{ github.repository }}/actions/workflows/reporte-semanal.yml/runs?event=schedule&status=success&created=>=$(date -u +%Y-%m-%d)" \
+            --jq '[.workflow_runs[] | select(.id != ${{ github.run_id }})] | length')
+          echo "Corridas exitosas previas hoy: $N"
+          if [ "$N" -gt 0 ]; then echo "enviado=si" >> "$GITHUB_OUTPUT"; fi
+
+      - uses: actions/checkout@v4
+        if: steps.ya.outputs.enviado != 'si'
+
+      - uses: actions/setup-node@v4
+        if: steps.ya.outputs.enviado != 'si'
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: steps.ya.outputs.enviado != 'si'
+        run: |
+          npm ci || (sleep 20 && npm ci)
+          npm install --no-save nodemailer@6.9.16
+
+      # Chromium se usa solo para convertir los informes a PDF.
+      - name: Install Chromium
+        if: steps.ya.outputs.enviado != 'si'
+        run: npx playwright install --with-deps chromium || (sleep 30 && npx playwright install --with-deps chromium)
+
+      - name: Armar y enviar informe
+        if: steps.ya.outputs.enviado != 'si'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          REPORTE_DESTINATARIOS: ${{ inputs.enviar_a || secrets.REPORTE_DESTINATARIOS }}
+          REPORTE_FIRMA: ${{ vars.REPORTE_FIRMA }}
+          ULTIMOS: ${{ inputs.ultimos_dias }}
+        run: node .github/scripts/reporte-semanal.js --salida reporte-semanal --enviar ${ULTIMOS:+--ultimos $ULTIMOS}

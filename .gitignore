@@ -10,3 +10,6 @@ node_modules/
 .chrome-user-data-prod
 .chrome-user-data
 .chrome-user-data-prod
+
+# Suite multi-resolución: la genera tests/resoluciones/generar.js en cada corrida
+tests/generados/

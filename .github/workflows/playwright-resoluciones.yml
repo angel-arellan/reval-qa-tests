@@ -1,0 +1,107 @@
+name: Playwright Multi-resolución - Escritorio, Celulares y Tablets (Cada 4 horas)
+
+# Corre las mismas pruebas de compra que la suite multisite horaria (menú, buscador, filtros,
+# carrito y checkout sin comprar) en 4 resoluciones de escritorio, 5 celulares y 2 tablets,
+# para todas las tiendas de tests/config/sites.js y The Wellness Project.
+#
+# No tiene tests propios: tests/resoluciones/generar.js copia los specs que ya corren en
+# producción con otro tamaño de pantalla (ver tests/config/resoluciones.js). Los specs y
+# workflows existentes no se tocan.
+#
+# Minuto 23 a propósito: los horarios en punto (:00) son los de más carga en GitHub y muchas
+# corridas programadas se pierden. Solo lectura y carrito: nunca compra ni envía formularios, y
+# no manda hits de analítica a las tiendas (los bloquea generar.js).
+
+on:
+  schedule:
+    - cron: '23 */4 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: multisite-resoluciones
+  cancel-in-progress: false
+
+jobs:
+  discover-sites:
+    name: Descubrir sitios configurados
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generar matrix desde tests/config/sites.js (+ The Wellness Project)
+        id: set-matrix
+        run: |
+          SITES=$(node -e "
+            const s = require('./tests/config/sites.js').map(({ id, name, baseUrl }) => ({ id, name, baseUrl }));
+            s.push({ id: 'TWP', name: 'The Wellness Project', baseUrl: 'https://www.thewellnessproject.com.ar' });
+            console.log(JSON.stringify(s));
+          ")
+          echo "matrix={\"include\":$SITES}" >> "$GITHUB_OUTPUT"
+
+  resoluciones:
+    name: Resoluciones - ${{ matrix.name }}
+    needs: discover-sites
+    timeout-minutes: 90
+    runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_JSON_OUTPUT_NAME: resultados.json
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover-sites.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci || (sleep 20 && npm ci)
+
+      # Celulares y tablets se emulan en Chromium (tamaño, pantalla táctil y user agent del
+      # dispositivo), igual que la suite responsive existente.
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium || (sleep 30 && npx playwright install --with-deps chromium) || (sleep 60 && npx playwright install --with-deps chromium)
+
+      - name: Generar suite multi-resolución
+        run: node tests/resoluciones/generar.js
+
+      - name: Run Resoluciones - ${{ matrix.name }}
+        id: tests
+        continue-on-error: true
+        run: npx playwright test tests/generados --grep "${{ matrix.id }}-" --workers=3 --reporter=html,json
+
+      # Anti falsas alarmas, igual que en las demás suites: se re-ejecuta solo lo que falló unos
+      # minutos después y únicamente si vuelve a fallar se avisa a Slack.
+      - name: Confirmar fallas - ${{ matrix.name }}
+        id: confirm
+        if: steps.tests.outcome == 'failure'
+        run: |
+          sleep 180
+          npx playwright test tests/generados --grep "${{ matrix.id }}-" --workers=3 --reporter=html,json --last-failed
+
+      - name: Upload HTML Report - ${{ matrix.name }}
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-resoluciones-${{ matrix.id }}
+          path: playwright-report/
+          retention-days: 14
+
+      # El paso corre siempre que haya una falla confirmada (el informe semanal lee de su log qué
+      # test falló), pero solo publica en Slack si la variable del repo RESOLUCIONES_SLACK = si.
+      # Arranca apagado mientras se calibran las resoluciones nuevas, para no llenar Slack.
+      - name: Notify Slack (Management) on Failure - ${{ matrix.name }}
+        if: failure() && steps.confirm.outcome == 'failure'
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK: ${{ vars.RESOLUCIONES_SLACK == 'si' && secrets.SLACK_WEBHOOK_MULTISITE_MANAGEMENT || '' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node .github/scripts/alerta-slack.js "ALERTA MULTI-RESOLUCIÓN" "${{ matrix.name }}" "${{ matrix.baseUrl }}"
