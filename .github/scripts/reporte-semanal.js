@@ -250,7 +250,7 @@ const AREAS = [
   ['buscador', /Buscador/i],
   ['catalogo', /Cat[aá]logo/i],
   ['compra', /Carrito|Checkout|PDP/i],
-  ['admin', /^(STG|PROD) - TC/],
+  ['admin', /^(STG|PROD) - (TC|PANEL)/],
   ['cuenta', /Login|Cuenta|Perfil|Pedidos|Suscripciones|Direcci[oó]n|T[eé]rminos|Privacidad|Pol[ií]ticas/i],
   ['tecnico', /Visual|Excepciones|Recursos|Links internos|contenido roto|Tracking|404|Precio|Im[aá]genes/i],
 ];

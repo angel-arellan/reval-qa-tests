@@ -21,8 +21,10 @@
 // GitHub activó la protección anti-robots de varias tiendas y el límite de "agregar al carrito"
 // (primera corrida, 05-nov-2026), además de cargar de más las tiendas de los clientes.
 //
-// Ajustes por sitio (clave = id de sites.js): omitir: { <id de resolución o grupo>: [tests] }
-// para dejar afuera una combinación que no aplica (dejar siempre el motivo en un comentario).
+// Ajustes por sitio (clave = id de sites.js), siempre con el motivo en un comentario:
+// - omitir: { <id de resolución o grupo>: [tests] } deja afuera una combinación que no aplica.
+// - sitio: { <grupo>: { ...parte de la config de sites.js } } cambia selectores solo para ese
+//   grupo de pantallas (ej. un theme que en celular usa otro campo de cantidad).
 
 const escritorio = {
   grupo: 'escritorio',
@@ -62,16 +64,8 @@ module.exports = {
     { id: 'TIPADPRO', lote: 2, nombre: 'iPad Pro 11 834×1194', device: 'iPad Pro 11', ...tablet },
   ],
   ajustes: {
-    // Pendiente (05-nov-2026): en celular el cambio de cantidad del carrito de Ena Sport no
-    // responde vía automation (en iPad y escritorio sí). Revisar a mano si también le pasa a un
-    // cliente real antes de reactivarlo; si es así, es un bug del sitio para reportar.
-    ENASPORT: { omitir: { celular: ['04'] } },
-    // Pendiente (05-nov-2026): en celular y tablet el drawer del carrito de Sofía Sarkany no se
-    // reconoce con el selector de escritorio (#Cart-Drawer .product-cart-item): "No se ve ningún
-    // item". Calibrar el selector mobile antes de reactivarlo.
-    SOFIA_SARKANY: { omitir: { celular: ['04'], tablet: ['04'] } },
-    // Pendiente (05-nov-2026): en celular y tablet el drawer #CartDrawer de Ansilta no se abre
-    // tras agregar en CI ("El carrito no se abrió"); en escritorio pasa. Calibrar en mobile.
-    ANSILTA_COM: { omitir: { celular: ['04'], tablet: ['04'] } },
+    // En celular, la página del carrito de Ena Sport oculta la celda de cantidad de escritorio
+    // (td.sm:table-cell) y muestra otro input.quantity-input: se usa el que está visible.
+    ENASPORT: { sitio: { celular: { cart: { quantityDisplay: { type: 'input', selector: 'input.quantity-input:visible' } } } } },
   },
 };

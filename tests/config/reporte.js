@@ -29,10 +29,7 @@ module.exports = {
           clave: 'reval-prod',
           workflow: 'playwright.yml',
           job: 'Production Environment Tests',
-          archivos: ['reval-prod-regression.spec.js', 'reval-customer-portal-prod.spec.js'],
-          // Los módulos del admin quedan "sin verificar" en GitHub (Shopify pide login): no se
-          // cuentan como pruebas realizadas.
-          excluirTitulos: /^PROD - TC/,
+          archivos: ['reval-panel-prod.spec.js', 'reval-customer-portal-prod.spec.js'],
         },
       ],
       revisamos: [
@@ -42,6 +39,7 @@ module.exports = {
         ['compra', 'Producto, carrito y checkout', 'Se agrega un producto en compra única y en suscripción, se revisa el carrito y se llega hasta la página de pago, sin comprar.'],
         ['cuenta', 'Cuenta de cliente', 'El ingreso a la cuenta y las secciones de pedidos, perfil y suscripciones cargan correctamente.'],
         ['cuenta', 'Páginas legales', 'Términos y condiciones y política de privacidad están accesibles.'],
+        ['admin', 'Panel de suscripciones (Reval)', 'Entramos a Reval con una clave de solo lectura y revisamos los datos de cada módulo: inicio, suscripciones, clientes, pedidos, planes, cajas y configuración.'],
       ],
     },
     {
@@ -54,8 +52,7 @@ module.exports = {
           clave: 'reval-stg',
           workflow: 'playwright.yml',
           job: 'Staging Environment Tests',
-          archivos: ['reval-smoke-regression.spec.js', 'reval-customer-portal-stg.spec.js', 'reval-storefront-stg.spec.js'],
-          excluirTitulos: /^STG - TC/,
+          archivos: ['reval-panel-stg.spec.js', 'reval-customer-portal-stg.spec.js', 'reval-storefront-stg.spec.js'],
         },
       ],
       revisamos: [
@@ -63,7 +60,7 @@ module.exports = {
         ['compra', 'Compra única', 'Agregamos un producto sin suscripción, llegamos al checkout de Shopify y volvemos al carrito.'],
         ['celular', 'Desde el celular', 'El mismo recorrido de suscripción hasta el checkout y vuelta, en un iPhone.'],
         ['cuenta', 'Portal del suscriptor', 'Pedidos, suscripciones, perfil y páginas legales del portal cargan correctamente.'],
-        ['admin', 'Panel de administración (14 secciones)', 'Inicio, suscripciones, clientes, pedidos, planes, productos, cajas, sorpresas, herramientas, facturación, API & MCP, integraciones, notificaciones y configuración. Shopify no deja entrar al panel a las pruebas automáticas desde la nube, así que se revisa con sesión en cada QA manual.', 'Revisión manual'],
+        ['admin', 'Panel de administración', 'Entramos a Reval con una clave de solo lectura y revisamos los datos de cada módulo: inicio (métricas), suscripciones, clientes, pedidos, planes, cajas y configuración de la tienda. Las 14 pantallas del panel se recorren además con sesión en cada QA manual.'],
       ],
     },
   ],

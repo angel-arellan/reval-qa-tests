@@ -28,10 +28,15 @@ jobs:
         # y eso disparaba una alerta de Slack sin que ningún test hubiera corrido.
         run: npx playwright install --with-deps || (sleep 30 && npx playwright install --with-deps) || (sleep 60 && npx playwright install --with-deps)
 
+      # El panel de Reval se prueba con una clave de solo lectura (Reval → API & MCP): desde
+      # GitHub el admin de Shopify pide login y Cloudflare frena la pantalla. Sin la clave, los
+      # tests del panel fallan avisando que no se pudo entrar.
       - name: Run Staging Tests
         id: run_staging_tests
         continue-on-error: true
-        run: npx playwright test tests/reval-smoke-regression.spec.js tests/reval-customer-portal-stg.spec.js tests/reval-storefront-stg.spec.js --reporter=html,json
+        env:
+          REVAL_STG_API_KEY: ${{ secrets.REVAL_STG_API_KEY }}
+        run: npx playwright test tests/reval-panel-stg.spec.js tests/reval-customer-portal-stg.spec.js tests/reval-storefront-stg.spec.js --reporter=html,json
 
       # Anti falsas alarmas: si algo falló (ya con los 2 reintentos de Playwright, o sea 3
       # intentos), se espera unos minutos y se re-ejecuta SOLO lo que falló. Únicamente si
@@ -40,9 +45,11 @@ jobs:
       - name: Confirmar fallas
         id: confirm_staging
         if: steps.run_staging_tests.outcome == 'failure'
+        env:
+          REVAL_STG_API_KEY: ${{ secrets.REVAL_STG_API_KEY }}
         run: |
           sleep 180
-          npx playwright test tests/reval-smoke-regression.spec.js tests/reval-customer-portal-stg.spec.js tests/reval-storefront-stg.spec.js --reporter=html,json --last-failed
+          npx playwright test tests/reval-panel-stg.spec.js tests/reval-customer-portal-stg.spec.js tests/reval-storefront-stg.spec.js --reporter=html,json --last-failed
 
       - name: Upload Staging HTML Report
         if: always()
@@ -88,7 +95,9 @@ jobs:
       - name: Run Production Tests
         id: run_prod_tests
         continue-on-error: true
-        run: npx playwright test tests/reval-prod-regression.spec.js tests/reval-customer-portal-prod.spec.js --reporter=html,json
+        env:
+          REVAL_PROD_API_KEY: ${{ secrets.REVAL_PROD_API_KEY }}
+        run: npx playwright test tests/reval-panel-prod.spec.js tests/reval-customer-portal-prod.spec.js --reporter=html,json
 
       # Anti falsas alarmas: si algo falló (ya con los 2 reintentos de Playwright, o sea 3
       # intentos), se espera unos minutos y se re-ejecuta SOLO lo que falló. Únicamente si
@@ -97,9 +106,11 @@ jobs:
       - name: Confirmar fallas
         id: confirm_prod
         if: steps.run_prod_tests.outcome == 'failure'
+        env:
+          REVAL_PROD_API_KEY: ${{ secrets.REVAL_PROD_API_KEY }}
         run: |
           sleep 180
-          npx playwright test tests/reval-prod-regression.spec.js tests/reval-customer-portal-prod.spec.js --reporter=html,json --last-failed
+          npx playwright test tests/reval-panel-prod.spec.js tests/reval-customer-portal-prod.spec.js --reporter=html,json --last-failed
 
       - name: Upload Production HTML Report
         if: always()

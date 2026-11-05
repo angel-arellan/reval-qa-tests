@@ -5,7 +5,16 @@ const fs = require('fs');
 test.describe('Reval Admin PROD – Suite de Regresión Real', () => {
   let browser, context, page;
 
+  // Recorrido de las PANTALLAS del admin. Corre solo en local, con una sesión real de Shopify:
+  //   REVAL_CDP=http://localhost:9333 npx playwright test <este archivo>
+  // (Chrome abierto con --remote-debugging-port=9333 y sesión iniciada en el admin). En GitHub
+  // el panel se prueba por API (reval-panel-*.spec.js), porque ahí Shopify no deja entrar.
   test.beforeAll(async () => {
+    if (process.env.REVAL_CDP) {
+      browser = await chromium.connectOverCDP(process.env.REVAL_CDP);
+      page = await browser.contexts()[0].newPage();
+      return;
+    }
     const isCI = !!process.env.CI;
     const sessionDir = path.resolve(process.env.GITHUB_WORKSPACE || process.cwd(), '.chrome-user-data-prod');
     const storageStatePath = path.resolve(process.cwd(), 'storageState.json');
@@ -20,6 +29,7 @@ test.describe('Reval Admin PROD – Suite de Regresión Real', () => {
   });
 
   test.afterAll(async () => {
+    if (process.env.REVAL_CDP) return page?.close().catch(() => {});
     if (context) await context.close();
     if (browser) await browser.close();
   });
@@ -27,14 +37,14 @@ test.describe('Reval Admin PROD – Suite de Regresión Real', () => {
   // Antes este chequeo pasaba aunque no se entrara al admin: con la sesión vencida (o el desafío
   // de Cloudflare "Just a moment..." que Shopify muestra a las IPs de GitHub) la pantalla de login
   // no contiene "Error 500" ni "undefined", y el test daba OK sin haber visto Reval. Ahora:
-  // - sin sesión válida el módulo queda como NO verificado (skip con el motivo), no como OK;
+  // - sin sesión válida el test FALLA diciendo que no pudo entrar (nunca un OK falso ni un skip);
   // - con sesión, se exige que cargue el iframe de la app Reval y se revisa su contenido.
   async function validarModulo(url, nombreModulo) {
     await page.goto(url, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(2000);
     const sinSesion =
       /\/login|accounts\.shopify\.com|\/challenges\//.test(page.url()) || /Just a moment/i.test(await page.title());
-    test.skip(sinSesion, `Sin sesión válida en el admin de Shopify: ${nombreModulo} no se pudo verificar`);
+    expect(sinSesion, `No se pudo entrar al admin de Shopify para revisar ${nombreModulo}: pidió login o verificación anti-robots (${page.url().slice(0, 80)})`).toBe(false);
 
     let app = null;
     for (let i = 0; i < 25 && !app; i++) {

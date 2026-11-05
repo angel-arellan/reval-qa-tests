@@ -47,6 +47,16 @@ function cabecera(res) {
 // Resolución: ${res.nombre}
 const __RES = ${JSON.stringify({ id: res.id, grupo: res.grupo, nombre: res.nombre })};
 const __AJUSTES = ${JSON.stringify(ajustes)};
+// Ajustes de selectores por sitio para este grupo de pantallas (ajustes[id].sitio[grupo] en
+// tests/config/resoluciones.js), mezclados sobre la config de sites.js.
+const __fusionar = (base, extra) => {
+  if (!extra) return base;
+  const out = { ...base };
+  for (const [k, v] of Object.entries(extra)) {
+    out[k] = v && typeof v === 'object' && !Array.isArray(v) && base?.[k] && typeof base[k] === 'object' ? __fusionar(base[k], v) : v;
+  }
+  return out;
+};
 // Devuelve test() si el test aplica a esta resolución y sitio; si no, una función vacía para
 // que ni siquiera se registre (no aparece como "skipped" en los reportes).
 const __testPara = (site, numero, incluidos) => {
@@ -68,9 +78,17 @@ test.beforeEach(async ({ page }, testInfo) => {
 });
 `;
 
+// Celulares y tablets corren en Chromium con el tamaño, la pantalla táctil y la densidad del
+// dispositivo, pero identificándose como Chrome móvil: con el user agent de Safari de iPhone
+// sobre Chromium, desde las IPs de GitHub Shopify trataba la visita como robot y rechazaba el
+// "agregar al carrito" (el carrito quedaba vacío solo en celular y tablet, nov-2026).
+const UA_CHROME_CELULAR = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
+const UA_CHROME_TABLET = 'Mozilla/5.0 (Linux; Android 14; SM-X710) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+const uaDe = (res) => (res.grupo === 'tablet' ? UA_CHROME_TABLET : UA_CHROME_CELULAR);
+
 function usoDispositivo(res) {
   if (res.device) {
-    return `const { defaultBrowserType: __dbt, ...__DISPOSITIVO } = devices[${JSON.stringify(res.device)}];\ntest.use(__DISPOSITIVO);`;
+    return `const { defaultBrowserType: __dbt, ...__DISPOSITIVO } = devices[${JSON.stringify(res.device)}];\ntest.use({ ...__DISPOSITIVO, userAgent: ${JSON.stringify(uaDe(res))} });`;
   }
   return null;
 }
@@ -87,6 +105,13 @@ function generarFuncional(res) {
     archivo
   );
   src = reemplazar(src, /require\('\.\//g, "require('../", 'rutas relativas', archivo);
+  src = reemplazar(
+    src,
+    "const sites = require('../config/sites');",
+    "const sites = require('../config/sites').map((s) => __fusionar(s, __AJUSTES[s.id]?.sitio?.[__RES.grupo]));",
+    'config de sitios con ajustes por pantalla',
+    archivo
+  );
 
   if (res.device) {
     src = reemplazar(
@@ -129,6 +154,13 @@ function generarResponsive(res) {
     archivo
   );
   src = reemplazar(src, /require\('\.\//g, "require('../", 'rutas relativas', archivo);
+  src = reemplazar(
+    src,
+    "const sites = require('../config/sites');",
+    "const sites = require('../config/sites').map((s) => __fusionar(s, __AJUSTES[s.id]?.sitio?.[__RES.grupo]));",
+    'config de sitios con ajustes por pantalla',
+    archivo
+  );
   src = reemplazar(src, "devices['iPhone 13']", `devices[${JSON.stringify(res.device)}]`, 'dispositivo mobile', archivo);
   src = reemplazar(
     src,
@@ -158,7 +190,7 @@ function generarTwp(res) {
     src = reemplazar(
       src,
       /test\.use\(\{\s*userAgent:[^\n]*\n/,
-      () => `const { defaultBrowserType: __dbt, ...__DISPOSITIVO } = devices[${JSON.stringify(res.device)}];\ntest.use({\n  ...__DISPOSITIVO,\n`,
+      () => `const { defaultBrowserType: __dbt, ...__DISPOSITIVO } = devices[${JSON.stringify(res.device)}];\ntest.use({\n  ...__DISPOSITIVO,\n  userAgent: ${JSON.stringify(uaDe(res))},\n`,
       'test.use con userAgent',
       archivo
     );
