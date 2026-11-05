@@ -605,7 +605,14 @@ async function main() {
 
   const lista = proyectos();
   const tests = listarTests();
-  for (const p of lista) for (const su of p.suites) su.cantidad = tests.filter(su.contar).length;
+  // La suite multi-resolución corre un lote por ronda (ver tests/config/resoluciones.js).
+  const lotes = new Set(resoluciones.map((r) => r.lote)).size || 1;
+  for (const p of lista) {
+    for (const su of p.suites) {
+      su.cantidad = tests.filter(su.contar).length;
+      if (su.clave === 'resoluciones') su.cantidad = Math.round(su.cantidad / lotes);
+    }
+  }
 
   const rondas = await recolectar(lista, rango);
   const enPeriodo = actividadesDelPeriodo(rango);

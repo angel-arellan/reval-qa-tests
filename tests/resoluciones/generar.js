@@ -1,6 +1,7 @@
 // Genera la suite multi-resolución a partir de los specs que ya corren en producción.
 //
 //   node tests/resoluciones/generar.js        → escribe tests/generados/*.spec.js
+//   RESOLUCIONES_LOTE=2 node tests/resoluciones/generar.js → solo las resoluciones del lote 2
 //   npx playwright test tests/generados --grep "SWISSGEAR_COM-"
 //
 // Por cada resolución de tests/config/resoluciones.js crea una copia de
@@ -185,7 +186,10 @@ function main() {
   fs.rmSync(SALIDA, { recursive: true, force: true });
   fs.mkdirSync(SALIDA, { recursive: true });
   const generados = [];
-  for (const res of resoluciones) {
+  const lote = process.env.RESOLUCIONES_LOTE;
+  const elegidas = lote === undefined || lote === '' ? resoluciones : resoluciones.filter((r) => String(r.lote) === String(lote));
+  if (!elegidas.length) throw new Error(`generar.js: el lote ${lote} no tiene resoluciones (ver tests/config/resoluciones.js)`);
+  for (const res of elegidas) {
     if (res.twp?.length) {
       const destino = path.join(SALIDA, `twp-${res.id}.spec.js`);
       fs.writeFileSync(destino, generarTwp(res));
@@ -203,7 +207,7 @@ function main() {
     }
   }
   console.log(`Suite multi-resolución generada (${generados.length} archivos en ${path.relative(process.cwd(), SALIDA)}/):`);
-  for (const res of resoluciones) console.log(`  • ${res.nombre}: funcional [${res.funcional.join(', ')}]${res.responsive.length ? ` + ${res.responsive.join(', ')}` : ''}`);
+  for (const res of elegidas) console.log(`  • ${res.nombre}: funcional [${res.funcional.join(', ')}]${res.responsive.length ? ` + ${res.responsive.join(', ')}` : ''}`);
 }
 
 main();
