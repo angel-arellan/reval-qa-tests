@@ -575,6 +575,22 @@ async function agregarProductoAlCarrito(page, site, BASE_URL) {
     await addBtn.click({ force: true });
     respuesta = await addToCartResponse;
   }
+
+  // HTTP 429: Shopify limitó los "agregar al carrito" desde esta IP. Pasa con las IPs compartidas
+  // de GitHub después de muchas pruebas seguidas contra la misma tienda (visto en la suite
+  // multi-resolución, nov-2026: el carrito abría vacío), nunca a un comprador real. Se espera lo
+  // que pide el servidor y se reintenta una vez; si sigue limitado se informa como bloqueo (el
+  // informe semanal no lo cuenta como falla de la tienda).
+  if (respuesta && respuesta.status() === 429) {
+    const espera = Math.min(Number(respuesta.headers()['retry-after']) || 20, 40) * 1000;
+    await page.waitForTimeout(espera);
+    addToCartResponse = esperarRespuestaCartAdd();
+    await addBtn.click({ force: true });
+    respuesta = await addToCartResponse;
+    if (respuesta && respuesta.status() === 429) {
+      throw new Error(`Bloqueo en Carrito: Shopify limitó el agregar al carrito desde los servidores de prueba (HTTP 429) en ${site.name}`);
+    }
+  }
   await page.waitForTimeout(1000);
 
   if (site.cart.type === 'drawer') {
