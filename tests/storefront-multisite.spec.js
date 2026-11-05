@@ -9,7 +9,7 @@ test.use({
 
 const POPUP_SELECTOR =
   '[id*="klaviyo"], [class*="newsletter"], [id*="shopify-section-popup"], [class*="cookie"], [id*="cookie"],' +
-  '[id*="alia"], [class*="alia"], [role="dialog"][aria-modal="true"]:not([id*="facet" i]):not([class*="facet" i]):not([aria-label="Shopping cart" i]):not([aria-labelledby*="cart" i]), [data-kl-scroll-locking-modal],' +
+  '[id*="alia"], [class*="alia"]:not(html, body), [role="dialog"][aria-modal="true"]:not([id*="facet" i]):not([class*="facet" i]):not([aria-label="Shopping cart" i]):not([aria-labelledby*="cart" i]), [data-kl-scroll-locking-modal],' +
   '[id*="chat-widget"], [class*="chat-widget"], [id*="chat-launcher"], [class*="chat-launcher"],' +
   '[id*="gorgias-chat"], [id*="tidio"], [id*="intercom"], [class*="intercom"], iframe[title*="chat" i],' +
   '[id*="onetrust"], [class*="onetrust"], [id*="cookiebot"], [class*="cookiebot"], .modal-backdrop,' +
@@ -41,6 +41,9 @@ const POPUP_SELECTOR =
 // atributos con algo de demora tras abrirse; cuando llegaban, el MutationObserver lo borraba
 // y el carrito quedaba solo con el overlay ("No se ve ningún item"), de forma intermitente.
 // Un diálogo rotulado como carrito nunca es un popup a limpiar.
+// [class*="alia"]:not(html, body): la clase "antialiased" de Tailwind contiene "alia" y va en
+// el <body> de muchos sitios hechos con Tailwind (ej. latechfactory.com, nov-2026). Sin la
+// exclusión, la limpieza ocultaba el body entero y la página quedaba en blanco para el test.
 // Deliberadamente NO se incluye un wildcard genérico tipo [class*="popup"]: ninguno de los
 // carritos/drawers configurados hoy usa esa palabra en su clase, pero a medida que se sumen
 // más tiendas (con temas distintos) un patrón tan amplio puede terminar ocultando el drawer
@@ -1039,8 +1042,25 @@ for (const site of sites) {
         await validarSinErrores(page, 'Checkout');
       }
 
-      await irA(page, BASE_URL);
-      await validarSinErrores(page, 'Vuelta desde Checkout');
+      // Vuelta del checkout al carrito, como un cliente que toca "volver": lo que agregó tiene
+      // que seguir ahí. Se lee /cart.js (con las cookies de esta misma sesión) en vez de buscar
+      // el item en pantalla, porque cada theme muestra el carrito distinto (página o drawer).
+      await irA(page, `${BASE_URL}/cart`);
+      await aceptarCookies(page, site);
+      await neutralizarPopups(page);
+      await validarSinErrores(page, 'Vuelta al carrito desde el checkout');
+      const carrito = await page.request
+        .get(`${BASE_URL}/cart.js`, { timeout: 15000 })
+        .then((r) => (r.ok() ? r.json() : null))
+        .catch(() => null);
+      if (carrito && typeof carrito.item_count === 'number') {
+        expect(carrito.item_count, `Al volver del checkout, el carrito de ${site.name} quedó vacío`).toBeGreaterThan(0);
+      } else {
+        test.info().annotations.push({
+          type: 'info',
+          description: `No se pudo leer /cart.js en ${site.name} para confirmar el carrito al volver del checkout (storefront sin ese endpoint)`,
+        });
+      }
     });
 
     test(`${site.id}-05: Acceso al Login`, async ({ page }) => {

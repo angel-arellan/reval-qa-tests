@@ -389,7 +389,8 @@ module.exports = [
       filters: { enabled: false },
     },
     pdp: {
-      path: '/products/plaid-about-it-pants-brown-navy',
+      // El producto anterior (plaid-about-it-pants-brown-navy) se dio de baja (404, nov-2026).
+      path: '/products/forever-beauty-maxi-skirt-mushroom',
       variantType: 'radio-label',
       variantInputSelector: 'input[type="radio"][id*="-Size-"]',
       quantitySelector: null,
@@ -678,5 +679,19 @@ module.exports = [
       subcategoryClickMethod: 'mouse',
       visibilityCheck: 'isVisible',
     },
+  },
+  {
+    id: 'LATECH_FACTORY',
+    name: 'Latech Factory',
+    baseUrl: 'https://latechfactory.com',
+    // Web institucional de Latech (Next.js + Tailwind), sin tienda: solo corren Home, mobile,
+    // visual, salud y responsive. No tiene <header>/<footer>/<nav> semánticos ni clases con
+    // "logo": el logo es un <svg><use href="/svgs/logo-white.svg#logo-white"> y el pie se
+    // reconoce por el link a LinkedIn.
+    ecommerce: false,
+    // En celular el logo SVG no se muestra: ahí cuenta como "header" el botón del menú.
+    logoSelector: 'svg:has(use[href*="logo"]), div:has(> svg > use[href*="menu-mobile"])',
+    footerSelector: 'a[href*="linkedin.com"]',
+    header: { hasMegaMenu: false },
   },
 ];

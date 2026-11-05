@@ -31,7 +31,7 @@ jobs:
       - name: Run Staging Tests
         id: run_staging_tests
         continue-on-error: true
-        run: npx playwright test tests/reval-smoke-regression.spec.js tests/reval-customer-portal-stg.spec.js --reporter=html,json
+        run: npx playwright test tests/reval-smoke-regression.spec.js tests/reval-customer-portal-stg.spec.js tests/reval-storefront-stg.spec.js --reporter=html,json
 
       # Anti falsas alarmas: si algo falló (ya con los 2 reintentos de Playwright, o sea 3
       # intentos), se espera unos minutos y se re-ejecuta SOLO lo que falló. Únicamente si
@@ -42,7 +42,7 @@ jobs:
         if: steps.run_staging_tests.outcome == 'failure'
         run: |
           sleep 180
-          npx playwright test tests/reval-smoke-regression.spec.js tests/reval-customer-portal-stg.spec.js --reporter=html,json --last-failed
+          npx playwright test tests/reval-smoke-regression.spec.js tests/reval-customer-portal-stg.spec.js tests/reval-storefront-stg.spec.js --reporter=html,json --last-failed
 
       - name: Upload Staging HTML Report
         if: always()

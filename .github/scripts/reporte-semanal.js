@@ -34,6 +34,7 @@ const { execSync } = require('child_process');
 const RAIZ = path.resolve(__dirname, '..', '..');
 const sites = require(path.join(RAIZ, 'tests/config/sites.js'));
 const cfg = require(path.join(RAIZ, 'tests/config/reporte.js'));
+const actividades = require(path.join(RAIZ, 'tests/config/actividades-qa.js'));
 const { resoluciones } = require(path.join(RAIZ, 'tests/config/resoluciones.js'));
 
 const REPO = process.env.GITHUB_REPOSITORY || 'angel-arellan/reval-qa-tests';
@@ -146,7 +147,7 @@ function revisamosTienda(site) {
     ? 'En celular el menú se abre, la ficha de producto muestra foto, precio y botón de compra, y nada se sale de la pantalla.'
     : 'En celular el menú se abre y nada se sale de la pantalla.']);
   filas.push(['tecnico', 'Salud técnica', 'Sin errores en el código del sitio, links rotos, imágenes caídas ni textos mal cargados, y la página de «no encontrado» funciona.']);
-  return filas;
+  return [...filas, ...((cfg.revisamosExtra || {})[site.id] || [])];
 }
 
 function proyectos() {
@@ -164,7 +165,7 @@ function proyectos() {
         suites: [
           { clave: 'funcional', workflow: 'playwright-multisite.yml', job: `Storefront - ${s.name}`, contar: contadorPorPrefijo(`${s.id}-`, (f) => f === 'storefront-multisite.spec.js', sinCompra) },
           { clave: 'salud', workflow: 'playwright-multisite-salud.yml', job: `Salud y Responsive - ${s.name}`, contar: contadorPorPrefijo(`${s.id}-`, (f) => /^storefront-multisite-(salud|responsive)\.spec\.js$/.test(f), false) },
-          { clave: 'resoluciones', workflow: 'playwright-resoluciones.yml', job: `Resoluciones - ${s.name}`, contar: contadorPorPrefijo(`${s.id}-`, (f) => f.startsWith('generados/'), sinCompra) },
+          { clave: 'resoluciones', workflow: 'playwright-resoluciones.yml', job: `Resoluciones - ${s.name}`, contar: contadorPorPrefijo(`${s.id}-`, (f) => f.startsWith('generados/') || f === 'web-latech.spec.js', sinCompra) },
         ],
       };
     });
@@ -176,7 +177,7 @@ function proyectos() {
         ...su,
         contar: su.prefijo
           ? contadorPorPrefijo(su.prefijo, (f) => f.startsWith('generados/'), false)
-          : (t) => su.archivos.includes(t.file),
+          : (t) => su.archivos.includes(t.file) && !(su.excluirTitulos && su.excluirTitulos.test(t.title)),
       })),
     });
   }
@@ -242,7 +243,9 @@ async function corridas(workflow, { desde, hasta }) {
 }
 
 const AREAS = [
-  ['celular', /^(Mobile|Tablet|Responsive)\b/i],
+  ['celular', /^(Mobile|Tablet|Responsive|Celular)\b/i],
+  ['contacto', /Formulario/i],
+  ['inicio', /p[aá]ginas del sitemap|men[uú] lleva|Casos de [eé]xito/i],
   ['inicio', /^Home\b|Link de categor/i],
   ['buscador', /Buscador/i],
   ['catalogo', /Cat[aá]logo/i],
@@ -263,11 +266,12 @@ const TEXTO_AREA = {
   celular: 'En celular o tablet, alguna parte de la tienda no se mostró correctamente.',
   tecnico: 'Detectamos errores técnicos (archivos, enlaces o imágenes que no cargaban).',
   admin: 'Alguna sección del panel de administración no cargó correctamente.',
+  contacto: 'El formulario de contacto no se mostró correctamente.',
   otro: 'Una de las pruebas automáticas no pasó.',
 };
 const NOMBRE_AREA = {
   inicio: 'página de inicio y menú', buscador: 'buscador', catalogo: 'catálogo y filtros', compra: 'carrito y checkout',
-  cuenta: 'cuenta de cliente', celular: 'celulares y tablets', tecnico: 'salud técnica', admin: 'panel de administración', otro: 'pruebas generales',
+  cuenta: 'cuenta de cliente', contacto: 'formulario de contacto', celular: 'celulares y tablets', tecnico: 'salud técnica', admin: 'panel de administración', otro: 'pruebas generales',
 };
 
 async function recolectar(lista, rango) {
@@ -365,6 +369,30 @@ async function recolectar(lista, rango) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Trabajo de QA manual (tests/config/actividades-qa.js)
+
+const diaISO = (d) => { const p = partes(d); return `${p.year}-${p.month.padStart(2, '0')}-${p.day.padStart(2, '0')}`; };
+function actividadesDelPeriodo(rango) {
+  const desde = diaISO(rango.desde);
+  const hasta = diaISO(rango.hasta);
+  return actividades.filter((a) => a.fecha >= desde && a.fecha <= hasta).sort((a, b) => a.fecha.localeCompare(b.fecha));
+}
+const fechaCorta = (iso) => { const [, m, d] = iso.split('-'); return `${Number(d)}/${Number(m)}`; };
+const CLASE_RESULTADO = { Aprobado: 'verde', 'Aprobado con observaciones': 'amarillo', 'Con problemas': 'rojo', Parcial: 'gris' };
+
+function htmlActividades(lista) {
+  if (!lista?.length) return '';
+  return `<h2>Trabajo de QA de la semana</h2>${lista.map((a) => `
+    <div class="incidente">
+      <div><b>${esc(a.titulo)}</b> <span class="estado ${CLASE_RESULTADO[a.resultado] || 'gris'}">${esc(a.resultado)}</span></div>
+      <div class="cuando">${esc(fechaCorta(a.fecha))}</div>
+      <div style="margin-top:4px">${esc(a.resumen)}</div>
+      ${a.hallazgos?.length ? `<div style="margin-top:6px"><b>Encontramos:</b><ul style="margin:2px 0 0;padding-left:18px">${a.hallazgos.map((h) => `<li>${esc(h)}</li>`).join('')}</ul></div>` : ''}
+      ${a.pendientes?.length ? `<div style="margin-top:6px"><b>Pendiente:</b><ul style="margin:2px 0 0;padding-left:18px">${a.pendientes.map((h) => `<li>${esc(h)}</li>`).join('')}</ul></div>` : ''}
+    </div>`).join('')}`;
+}
+
+// ---------------------------------------------------------------------------------------------
 // Textos
 
 function estadoProyecto(p) {
@@ -458,7 +486,9 @@ const ESTILOS = `
 function htmlProyecto(p, rango) {
   const est = estadoProyecto(p);
   const porArea = (clave) => p.incidentes.filter((i) => i.areas.includes(clave));
-  const filas = p.revisamos.map(([clave, titulo, texto]) => {
+  const filas = p.revisamos.map(([clave, titulo, texto, fijo]) => {
+    if (fijo) return `<tr><td class="area">${esc(titulo)}</td><td>${esc(texto)}</td><td class="res"><span style="color:#4b5363;font-weight:600">${esc(fijo)}</span></td></tr>`;
+    if (!p.stats.rondas) return `<tr><td class="area">${esc(titulo)}</td><td>${esc(texto)}</td><td class="res"><span style="color:#4b5363">Sin datos todavía</span></td></tr>`;
     const incs = porArea(clave);
     const delSitio = incs.filter((i) => i.causa === 'sitio');
     let res = '<span class="ok">Sin problemas</span>';
@@ -489,7 +519,7 @@ function htmlProyecto(p, rango) {
     <p class="sub">${esc(p.url)}</p>
     <p class="sub">Informe semanal del ${esc(diaMes(rango.desde))} al ${esc(diaMes(rango.hasta))} · <span class="estado ${est.clase}">${esc(est.etiqueta)}</span></p>
 
-    <div class="resumen">${esc(est.resumen)}</div>
+    <div class="resumen">${esc(est.resumen)}${p.actividades?.length ? ` Además, esta semana hicimos ${plural(p.actividades.length, 'revisión manual', 'revisiones manuales')}; el detalle está al final.` : ''}</div>
 
     <div class="cifras">
       <div class="cifra"><b>${p.stats.rondas.toLocaleString('es-AR')}</b><span>rondas de prueba en la semana</span></div>
@@ -506,17 +536,19 @@ function htmlProyecto(p, rango) {
     <h2>Novedades de la semana</h2>
     ${incidentes}
 
+    ${htmlActividades(p.actividades)}
+
     ${p.nota ? `<h2>Para tener en cuenta</h2><div class="nota">${esc(p.nota)}</div>` : ''}
 
     <div class="pie">
-      Las pruebas se hacen solas, varias veces por día, como si fueran un cliente real navegando la tienda desde distintos dispositivos.
+      Las pruebas se hacen solas, varias veces por día, como si fueran un cliente real navegando el sitio desde distintos dispositivos.
       Nunca se completan compras ni se envían formularios. Cuando una prueba falla, se repite a los pocos minutos antes de considerarla un problema,
       para descartar cortes momentáneos de internet; si se confirma, el equipo recibe un aviso en el momento.<br><br>${esc(FIRMA)}
     </div>
   </body></html>`;
 }
 
-function htmlInterno(lista, rango, rondas, pdfs) {
+function htmlInterno(lista, rango, rondas, pdfs, manual = []) {
   const filas = lista.map((p) => {
     const est = estadoProyecto(p);
     const delSitio = p.incidentes.filter((i) => i.causa === 'sitio').length;
@@ -556,6 +588,8 @@ function htmlInterno(lista, rango, rondas, pdfs) {
         <th style="text-align:right;padding:6px 8px">Incidentes</th><th style="text-align:right;padding:6px 8px">Fallas que se recuperaron solas</th>
       </tr></thead><tbody>${filas}</tbody></table>
     ${detalle ? `<h2>Detalle técnico (no va en los PDF)</h2>${detalle}` : ''}
+    ${manual.length ? `<h2>Trabajo de QA manual de la semana</h2><ul style="padding-left:18px">${manual.map((a) => `
+      <li style="margin-bottom:6px"><b>${esc(fechaCorta(a.fecha))} · ${esc(a.proyectos.map((id) => lista.find((p) => p.id === id)?.nombre || id).join(', '))}</b>: ${esc(a.titulo)} (${esc(a.resultado)})${a.informe ? ` · <a href="${esc(a.informe)}">informe completo</a>` : ''}</li>`).join('')}</ul>` : ''}
     ${avisos ? `<h2>Para revisar</h2><p>GitHub no disparó todas las corridas programadas:</p><ul>${avisos}</ul>` : ''}
     <p style="margin-top:18px">PDF adjuntos: ${pdfs.length}.</p>
     <p>Saludos,<br>${esc(FIRMA)}</p>
@@ -574,6 +608,8 @@ async function main() {
   for (const p of lista) for (const su of p.suites) su.cantidad = tests.filter(su.contar).length;
 
   const rondas = await recolectar(lista, rango);
+  const enPeriodo = actividadesDelPeriodo(rango);
+  for (const p of lista) p.actividades = enPeriodo.filter((a) => a.proyectos.includes(p.id));
   fs.mkdirSync(SALIDA, { recursive: true });
 
   const { chromium } = require('@playwright/test');
@@ -598,7 +634,7 @@ async function main() {
   }
   await browser.close();
 
-  const interno = htmlInterno(lista, rango, rondas, pdfs);
+  const interno = htmlInterno(lista, rango, rondas, pdfs, enPeriodo);
   fs.writeFileSync(path.join(SALIDA, 'mail-interno.html'), interno);
   console.log(`Listo: ${pdfs.length} PDF y mail-interno.html en ${SALIDA}`);
 

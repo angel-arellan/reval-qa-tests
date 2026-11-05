@@ -13,4 +13,6 @@ module.exports = {
   ADEPAC: { precioVisible: false },
   // Mayorista: precios y botón de compra solo para clientes registrados y logueados.
   INTI_TEA_PROFESIONAL: { precioVisible: false, compraVisible: false },
+  // El menú mobile es un <div class="xl:hidden"> con un <svg> (sin botón ni aria-label).
+  LATECH_FACTORY: { menuMobile: { toggle: 'div:has(> svg > use[href*="menu-mobile"])' } },
 };

@@ -14,6 +14,8 @@
 // - ignorarLinks: [RegExp] — hrefs de header/footer a excluir del chequeo de links.
 // - precioVisible: false — tienda B2B que oculta precios a usuarios sin login. SALUD-07 solo
 //   valida el precio contra el dato de Shopify (/products/<handle>.js), no en pantalla.
+// - linksSelector: '<selector>' — de dónde toma SALUD-03 los links a revisar cuando el sitio no
+//   tiene <header>/<footer> semánticos (default: 'header a[href], footer a[href]').
 //
 // DESESTIMADOS: excepciones JS que la suite detectó en la calibración (sep-2026) pero que
 // no se pudieron reproducir manualmente ni tienen impacto visible para el cliente final
@@ -47,5 +49,9 @@ module.exports = {
   INTI_TEA_PROFESIONAL: {
     // Tienda mayorista: los precios solo se muestran a clientes registrados y logueados.
     precioVisible: false,
+  },
+  LATECH_FACTORY: {
+    // Web en Next.js + Tailwind sin <header>/<footer>: se revisan todos los links de la home.
+    linksSelector: 'a[href]',
   },
 };

@@ -24,15 +24,39 @@ test.describe('Reval Admin STAGING – Suite de Regresión Real', () => {
     if (browser) await browser.close();
   });
 
+  // Antes este chequeo pasaba aunque no se entrara al admin: con la sesión vencida (o el desafío
+  // de Cloudflare "Just a moment..." que Shopify muestra a las IPs de GitHub) la pantalla de login
+  // no contiene "Error 500" ni "undefined", y el test daba OK sin haber visto Reval. Ahora:
+  // - sin sesión válida el módulo queda como NO verificado (skip con el motivo), no como OK;
+  // - con sesión, se exige que cargue el iframe de la app Reval y se revisa su contenido.
   async function validarModulo(url, nombreModulo) {
     await page.goto(url, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(2000);
-    const bodyText = await page.locator('body').innerText();
-    
-    expect(bodyText, `Error 500 en ${nombreModulo}`).not.toContain('Error 500');
-    expect(bodyText, `Error 404 en ${nombreModulo}`).not.toContain('404 Not Found');
-    expect(bodyText, `Código roto en ${nombreModulo}`).not.toContain('undefined');
-    expect(bodyText, `Código roto en ${nombreModulo}`).not.toContain('NaN');
+    const sinSesion =
+      /\/login|accounts\.shopify\.com|\/challenges\//.test(page.url()) || /Just a moment/i.test(await page.title());
+    test.skip(sinSesion, `Sin sesión válida en el admin de Shopify: ${nombreModulo} no se pudo verificar`);
+
+    let app = null;
+    for (let i = 0; i < 25 && !app; i++) {
+      app = page.frames().find((f) => /ondigitalocean\.app|appreval\.com/.test(f.url()));
+      if (!app) await page.waitForTimeout(1000);
+    }
+    expect(app, `La app Reval no cargó dentro del admin en ${nombreModulo}`).toBeTruthy();
+    await expect
+      .poll(() => app.evaluate(() => (document.body ? document.body.innerText.trim().length : 0)).catch(() => 0), {
+        message: `${nombreModulo} quedó en blanco dentro de la app`,
+        timeout: 20000,
+      })
+      .toBeGreaterThan(20);
+    await page.waitForTimeout(1500);
+
+    // document.body y no locator('body'): el admin de Shopify tiene más de un <body> en la página.
+    for (const bodyText of [await page.evaluate(() => document.body.innerText), await app.evaluate(() => document.body.innerText)]) {
+      expect(bodyText, `Error 500 en ${nombreModulo}`).not.toContain('Error 500');
+      expect(bodyText, `Error 404 en ${nombreModulo}`).not.toContain('404 Not Found');
+      expect(bodyText, `Código roto en ${nombreModulo}`).not.toContain('undefined');
+      expect(bodyText, `Código roto en ${nombreModulo}`).not.toContain('NaN');
+    }
   }
 
   test('STG - TC01: Dashboard', async () => { await validarModulo('https://admin.shopify.com/store/mp-subscriptions/apps/latech-subscriptions-1/app', 'Dashboard'); });
@@ -44,4 +68,10 @@ test.describe('Reval Admin STAGING – Suite de Regresión Real', () => {
   test('STG - TC07: Sorpresas', async () => { await validarModulo('https://admin.shopify.com/store/mp-subscriptions/apps/latech-subscriptions-1/app/sorpresas', 'Sorpresas'); });
   test('STG - TC08: Herramientas', async () => { await validarModulo('https://admin.shopify.com/store/mp-subscriptions/apps/latech-subscriptions-1/app/tools', 'Herramientas'); });
   test('STG - TC09: Configuración', async () => { await validarModulo('https://admin.shopify.com/store/mp-subscriptions/apps/latech-subscriptions-1/app/settings', 'Configuración'); });
+  // Módulos sumados al menú de Reval (nov-2026).
+  test('STG - TC10: Cajas', async () => { await validarModulo('https://admin.shopify.com/store/mp-subscriptions/apps/latech-subscriptions-1/app/boxes', 'Cajas'); });
+  test('STG - TC11: Facturación', async () => { await validarModulo('https://admin.shopify.com/store/mp-subscriptions/apps/latech-subscriptions-1/app/billing', 'Facturación'); });
+  test('STG - TC12: API & MCP', async () => { await validarModulo('https://admin.shopify.com/store/mp-subscriptions/apps/latech-subscriptions-1/app/integrations', 'API & MCP'); });
+  test('STG - TC13: Integraciones', async () => { await validarModulo('https://admin.shopify.com/store/mp-subscriptions/apps/latech-subscriptions-1/app/connections', 'Integraciones'); });
+  test('STG - TC14: Notificaciones', async () => { await validarModulo('https://admin.shopify.com/store/mp-subscriptions/apps/latech-subscriptions-1/app/notifications', 'Notificaciones'); });
 });

@@ -242,7 +242,8 @@ for (const site of sites) {
     test(`${site.id}-SALUD-03: Links internos de header y footer sin 404/5xx`, async ({ page }) => {
       await visitar(page, site.baseUrl);
       const origen = new URL(site.baseUrl).origin;
-      const hrefs = await page.$$eval('header a[href], footer a[href]', (links) => links.map((a) => a.href));
+      // linksSelector (salud.js): sitios sin <header>/<footer> semánticos (ej. latechfactory.com).
+      const hrefs = await page.$$eval(cfg.linksSelector || 'header a[href], footer a[href]', (links) => links.map((a) => a.href));
       const internos = [...new Set(
         hrefs
           .filter((h) => h.startsWith('http'))
