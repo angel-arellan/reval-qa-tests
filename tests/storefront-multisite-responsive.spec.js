@@ -84,6 +84,11 @@ async function visitar(page, url) {
   // funcional): se les da margen antes de medir.
   await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
   await page.waitForTimeout(1500);
+  // Si la tienda respondió con la verificación anti-robots (solo a IPs de datacenter), no tiene
+  // sentido medir nada: se informa como bloqueo y el informe semanal no lo cuenta como falla.
+  if (/Just a moment/i.test(await page.title().catch(() => ''))) {
+    throw new Error(`Bloqueo en ${new URL(url).pathname}: la tienda pidió verificación anti-robots a los servidores de prueba`);
+  }
   return response;
 }
 
