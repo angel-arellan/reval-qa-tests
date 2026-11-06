@@ -351,8 +351,11 @@ async function recolectar(lista, rango) {
       inc.causa = 'sitio';
       // "Bloqueo en X" = la página respondió con el desafío anti-robots ("Just a moment...")
       // a los servidores de GitHub. Un comprador real no lo ve: no es una caída de la tienda.
+      // Si la mayoría de las pruebas que fallaron chocaron con esa verificación, el resto de la
+      // misma tanda tampoco es confiable (la tienda estaba frenando a los servidores de prueba).
       const motivos = [...inc.tests.values()];
-      if (motivos.length && motivos.every((m) => /^Bloqueo en |Just a moment|anti-?bot/i.test(m))) inc.causa = 'bloqueo';
+      const bloqueos = motivos.filter((m) => /^Bloqueo en |Just a moment|anti-?bot|HTTP 429/i.test(m)).length;
+      if (motivos.length && bloqueos * 2 >= motivos.length) inc.causa = 'bloqueo';
       if (inc.causa === 'sitio' && inc.fin && inc.finSha && inc.finSha !== inc.ultimaFalla.sha) {
         const commits = await commitsEntre(inc.ultimaFalla.sha, inc.finSha);
         const claves = [normalizar(p.nombre), normalizar(p.id)];
