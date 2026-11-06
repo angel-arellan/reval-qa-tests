@@ -35,6 +35,7 @@ const RAIZ = path.resolve(__dirname, '..', '..');
 const sites = require(path.join(RAIZ, 'tests/config/sites.js'));
 const cfg = require(path.join(RAIZ, 'tests/config/reporte.js'));
 const { resoluciones } = require(path.join(RAIZ, 'tests/config/resoluciones.js'));
+const { COLORES: C, FUENTE, FUENTE_LINK, logoSvg, proporcion } = require('./marca-latech');
 
 const REPO = process.env.GITHUB_REPOSITORY || 'angel-arellan/reval-qa-tests';
 const TOKEN = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
@@ -496,38 +497,42 @@ function pantallasProbadas(p) {
 // ---------------------------------------------------------------------------------------------
 // HTML
 
+// Estilos con la marca Latech (ver .claude/skills/latech-brandbook/SKILL.md).
 const ESTILOS = `
   * { box-sizing: border-box; }
-  body { font-family: 'Helvetica Neue', Helvetica, Arial, 'Liberation Sans', sans-serif; color: #1d2433; font-size: 10.5pt; line-height: 1.5; margin: 0; }
-  h1 { font-size: 20pt; margin: 0 0 2px; font-weight: 700; letter-spacing: -0.2px; }
-  h2 { font-size: 12pt; margin: 22px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #d9dee7; page-break-after: avoid; }
-  .marca { font-size: 9pt; color: #5b6475; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 14px; }
-  .sub { color: #5b6475; margin: 0; }
-  .estado { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 9pt; font-weight: 700; }
+  body { font-family: ${FUENTE}; color: ${C.tinta}; font-size: 10pt; line-height: 1.5; margin: 0; }
+  .cabecera { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid ${C.grisBorde}; }
+  .rotulo { font-size: 7.5pt; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: ${C.grisTexto}; }
+  h1 { font-size: 28pt; line-height: 1.15; margin: 26px 0 2px; font-weight: 300; color: ${C.negro}; letter-spacing: -0.3px; }
+  .acento { width: 40px; height: 3px; background: ${C.azul}; margin: 12px 0 14px; }
+  h2 { font-size: 11.5pt; font-weight: 600; margin: 24px 0 8px; padding-bottom: 6px; border-bottom: 1px solid ${C.grisBorde}; page-break-after: avoid; color: ${C.negro}; }
+  h2::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 3px; background: ${C.azul}; margin-right: 8px; vertical-align: -1px; }
+  .sub { color: ${C.grisTexto}; margin: 0; }
+  .estado { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 8.5pt; font-weight: 600; }
   .verde { background: #e3f3e8; color: #1e6b3a; } .amarillo { background: #fdf1d8; color: #8a5a00; }
-  .rojo { background: #fbe3e1; color: #9b2c22; } .gris { background: #eceef2; color: #4b5363; }
-  .resumen { margin: 6px 0 6px; padding: 12px 14px; background: #f5f7fa; border-left: 3px solid #1f3a5f; }
-  .titulo-resumen { font-size: 9pt; text-transform: uppercase; letter-spacing: 1px; color: #1f3a5f; font-weight: 700; margin-top: 16px; }
+  .rojo { background: #fbe3e1; color: #9b2c22; } .gris { background: ${C.grisFondo}; color: #4b5363; }
+  .resumen { margin: 6px 0; padding: 14px 16px; background: ${C.azulClaro}; border-left: 3px solid ${C.azul}; border-radius: 0 8px 8px 0; font-size: 10.5pt; }
+  .titulo-resumen { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 1.2px; color: ${C.azul}; font-weight: 600; margin-top: 18px; }
   .cifras { display: flex; gap: 10px; margin: 14px 0 4px; }
-  .cifra { flex: 1; border: 1px solid #d9dee7; border-radius: 6px; padding: 10px 12px; }
-  .cifra b { display: block; font-size: 16pt; color: #1f3a5f; }
-  .cifra span { font-size: 8.5pt; color: #5b6475; }
+  .cifra { flex: 1; background: ${C.grisFondo}; border-radius: 8px; padding: 12px 14px; }
+  .cifra b { display: block; font-size: 20pt; font-weight: 300; color: ${C.azul}; line-height: 1.1; }
+  .cifra span { font-size: 8pt; color: ${C.grisTexto}; }
   table { width: 100%; border-collapse: collapse; }
   tr { page-break-inside: avoid; }
-  th { text-align: left; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.6px; color: #5b6475; font-weight: 600; padding: 6px 8px; border-bottom: 1px solid #d9dee7; }
-  td { padding: 8px; border-bottom: 1px solid #eceef2; vertical-align: top; }
+  th { text-align: left; font-size: 7.5pt; text-transform: uppercase; letter-spacing: 1px; color: ${C.grisTexto}; font-weight: 600; padding: 6px 8px; border-bottom: 1px solid ${C.grisBorde}; }
+  td { padding: 8px; border-bottom: 1px solid #eceef0; vertical-align: top; }
   td.area { font-weight: 600; width: 27%; }
   td.res { width: 21%; white-space: nowrap; }
   td.num { text-align: center; width: 18%; }
   .ok { color: #1e6b3a; font-weight: 600; } .warn { color: #8a5a00; font-weight: 600; } .bad { color: #9b2c22; font-weight: 600; }
-  .nota-chica { font-size: 8.5pt; color: #5b6475; }
-  .puntaje { display: inline-block; min-width: 38px; padding: 2px 8px; border-radius: 10px; font-weight: 700; }
-  .incidente { border: 1px solid #d9dee7; border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; page-break-inside: avoid; }
-  .incidente .cuando { font-size: 9pt; color: #5b6475; }
-  .chips span { display: inline-block; border: 1px solid #d9dee7; border-radius: 10px; padding: 1px 8px; margin: 2px 4px 2px 0; font-size: 8.5pt; }
-  .nota { padding: 10px 12px; background: #fdf8ec; border: 1px solid #f1e2b8; border-radius: 6px; }
+  .nota-chica { font-size: 8pt; color: ${C.grisTexto}; }
+  .puntaje { display: inline-block; min-width: 38px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+  .incidente { border: 1px solid ${C.grisBorde}; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; page-break-inside: avoid; }
+  .incidente .cuando { font-size: 8.5pt; color: ${C.grisTexto}; }
+  .chips span { display: inline-block; background: ${C.grisFondo}; border-radius: 10px; padding: 2px 9px; margin: 2px 4px 2px 0; font-size: 8pt; }
+  .nota { padding: 10px 12px; background: #fdf8ec; border: 1px solid #f1e2b8; border-radius: 8px; }
   ul.como { margin: 0; padding-left: 18px; } ul.como li { margin-bottom: 4px; }
-  .pie { margin-top: 22px; font-size: 8.5pt; color: #5b6475; }
+  .pie { margin-top: 26px; padding-top: 12px; border-top: 1px solid ${C.grisBorde}; font-size: 8pt; color: ${C.grisTexto}; display: flex; align-items: center; gap: 8px; }
 `;
 
 const clasePuntaje = (n) => (n >= 90 ? 'verde' : n >= 50 ? 'amarillo' : 'rojo');
@@ -616,11 +621,12 @@ function htmlProyecto(p, rango) {
   const pantallas = pantallasProbadas(p);
   const pctOk = p.stats.rondas ? Math.round((1 - delCliente(p).reduce((n, i) => n + i.corridas.length, 0) / p.stats.rondas) * 1000) / 10 : null;
 
-  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe semanal · ${esc(p.nombre)}</title><style>${ESTILOS}</style></head><body>
-    <div class="marca">Latech Factory · Monitoreo de calidad</div>
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe semanal · ${esc(p.nombre)}</title>${FUENTE_LINK}<style>${ESTILOS}</style></head><body>
+    <div class="cabecera">${logoSvg('logo-completo-azul', 24)}<span class="rotulo">Informe semanal de QA</span></div>
     <h1>${esc(p.nombre)}</h1>
     <p class="sub">${esc(p.url)}</p>
-    <p class="sub">Informe semanal del ${esc(diaMes(rango.desde))} al ${esc(diaMes(rango.hasta))} · <span class="estado ${est.clase}">${esc(est.etiqueta)}</span></p>
+    <div class="acento"></div>
+    <p class="sub">Semana del ${esc(diaMes(rango.desde))} al ${esc(diaMes(rango.hasta))} · <span class="estado ${est.clase}">${esc(est.etiqueta)}</span></p>
 
     <div class="titulo-resumen">Resumen</div>
     <div class="resumen">${esc(resumenEjecutivo(p).texto)}</div>
@@ -648,7 +654,7 @@ function htmlProyecto(p, rango) {
 
     ${p.nota ? `<h2>Para tener en cuenta</h2><div class="nota">${esc(p.nota)}</div>` : ''}
 
-    <div class="pie">${esc(FIRMA)}</div>
+    <div class="pie">${logoSvg('isologo-azul', 14)}<span>${esc(FIRMA)} · latechfactory.com</span></div>
   </body></html>`;
 }
 
@@ -696,7 +702,14 @@ function resumenEjecutivo(p) {
   return { est, texto: frases.join(' ') };
 }
 
-function htmlInterno(lista, rango, pdfs) {
+const ESTADO_INLINE = {
+  verde: 'background:#e3f3e8;color:#1e6b3a',
+  amarillo: 'background:#fdf1d8;color:#8a5a00',
+  rojo: 'background:#fbe3e1;color:#9b2c22',
+  gris: 'background:#F5F5F5;color:#4b5363',
+};
+
+function htmlInterno(lista, rango, pdfs, logo) {
   const orden = { rojo: 0, amarillo: 1, verde: 2, gris: 3 };
   const filas = lista
     .map((p) => ({ p, ...resumenEjecutivo(p) }))
@@ -707,30 +720,52 @@ function htmlInterno(lista, rango, pdfs) {
     ? `${plural(filas.length - conNovedades.length, 'proyecto funcionó', 'proyectos funcionaron')} bien toda la semana y ${conNovedades.length === 1 ? 'uno tiene observaciones' : `${conNovedades.length} tienen observaciones`}: ${conNovedades.map((f) => f.p.nombre).join(', ')}.`
     : 'Todos los proyectos funcionaron bien toda la semana.';
   const avisoRevisar = aRevisar.length
-    ? `<p style="padding:10px 12px;background:#fdf1d8;border-radius:6px"><b>Revisar antes de reenviar:</b> ${esc(aRevisar.map((f) => f.p.nombre).join(', '))}. Tiene${aRevisar.length === 1 ? '' : 'n'} una prueba fallando al cierre del informe que puede ser un cambio de diseño del sitio o una falla real.</p>`
+    ? `<p style="margin:0 0 12px;padding:10px 12px;background:#fdf1d8;border-radius:8px;color:#5c3d00"><b>Revisar antes de reenviar:</b> ${esc(aRevisar.map((f) => f.p.nombre).join(', '))}. Tiene${aRevisar.length === 1 ? '' : 'n'} una prueba fallando al cierre del informe que puede ser un cambio de diseño del sitio o una falla real.</p>`
     : '';
 
   const bloques = filas.map(({ p, est, texto }) => `
     <tr>
-      <td style="padding:10px 12px 10px 0;border-bottom:1px solid #eceef2;vertical-align:top;width:30%">
-        <b>${esc(p.nombre)}</b><br><span class="estado ${est.clase}" style="margin-top:4px">${esc(est.etiqueta)}</span>${est.clase === 'rojo' || est.revisar ? '<br><span style="font-size:8.5pt;color:#8a5a00">Revisar antes de reenviar</span>' : ''}
+      <td style="padding:12px 12px 12px 0;border-bottom:1px solid #eceef0;vertical-align:top;width:30%">
+        <b style="color:${C.negro}">${esc(p.nombre)}</b><br><span style="display:inline-block;margin-top:5px;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:600;${ESTADO_INLINE[est.clase]}">${esc(est.etiqueta)}</span>${est.clase === 'rojo' || est.revisar ? '<br><span style="font-size:11px;color:#8a5a00">Revisar antes de reenviar</span>' : ''}
       </td>
-      <td style="padding:10px 0;border-bottom:1px solid #eceef2;vertical-align:top;color:#33394a">${esc(texto)}</td>
+      <td style="padding:12px 0;border-bottom:1px solid #eceef0;vertical-align:top;color:${C.tinta}">${esc(texto)}</td>
     </tr>`).join('');
 
-  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><style>${ESTILOS} body{font-size:10.5pt;max-width:720px}</style></head><body>
-    <p>Hola,</p>
-    <p>Este es el resumen de QA de todos los proyectos retainer de la semana del ${esc(diaMes(rango.desde))} al ${esc(diaMes(rango.hasta))}. ${esc(intro)}</p>
-    ${avisoRevisar}
-    <p>Abajo va lo principal de cada proyecto. El informe completo de cada uno va adjunto en PDF (${pdfs.length} en total). A cada cliente se le reenvía solo su PDF: este mail tiene el resumen de todos los proyectos.</p>
-    <table style="border-collapse:collapse;width:100%;font-size:10pt;margin-top:8px">
-      <thead><tr>
-        <th style="text-align:left;padding:6px 12px 6px 0">Proyecto</th>
-        <th style="text-align:left;padding:6px 0">Resumen</th>
-      </tr></thead>
-      <tbody>${bloques}</tbody>
-    </table>
-    <p style="margin-top:18px">Saludos,<br>${esc(FIRMA)}</p>
+  // Mail: estilos en línea (varios programas de correo ignoran <style>) y logo en PNG.
+  const f = `font-family:${FUENTE}`;
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8">${FUENTE_LINK}<style>${ESTILOS}</style></head>
+  <body style="margin:0;padding:0;background:${C.grisFondo}">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.grisFondo}"><tr><td align="center" style="padding:24px 12px">
+  <table role="presentation" width="680" cellpadding="0" cellspacing="0" style="max-width:680px;width:100%;background:${C.blanco};border-radius:10px;${f};color:${C.tinta};font-size:14px;line-height:1.55">
+    <tr><td style="padding:24px 28px 18px;border-bottom:1px solid ${C.grisBorde}">
+      <img src="${logo.src}" alt="Latech" width="${logo.ancho}" height="${logo.alto}" style="display:block;border:0">
+    </td></tr>
+    <tr><td style="padding:26px 28px 6px">
+      <div style="${f};font-size:11px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:${C.azul}">Informe semanal de QA</div>
+      <div style="${f};font-size:26px;font-weight:300;color:${C.negro};line-height:1.2;margin-top:6px">Semana del ${esc(diaMes(rango.desde))} al ${esc(diaMes(rango.hasta))}</div>
+      <div style="width:40px;height:3px;background:${C.azul};margin:14px 0 4px"></div>
+    </td></tr>
+    <tr><td style="padding:10px 28px 0">
+      <p style="margin:0 0 12px">Hola,</p>
+      <p style="margin:0 0 12px">Este es el resumen de QA de todos los proyectos retainer de la semana del ${esc(diaMes(rango.desde))} al ${esc(diaMes(rango.hasta))}. ${esc(intro)}</p>
+      ${avisoRevisar}
+      <p style="margin:0 0 12px">Abajo va lo principal de cada proyecto. El informe completo de cada uno va adjunto en PDF (${pdfs.length} en total). A cada cliente se le reenvía solo su PDF: este mail tiene el resumen de todos los proyectos.</p>
+    </td></tr>
+    <tr><td style="padding:4px 28px 8px">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:13px">
+        <tr>
+          <th align="left" style="${f};padding:8px 12px 8px 0;border-bottom:1px solid ${C.grisBorde};font-size:10px;letter-spacing:1px;text-transform:uppercase;color:${C.grisTexto};font-weight:600">Proyecto</th>
+          <th align="left" style="${f};padding:8px 0;border-bottom:1px solid ${C.grisBorde};font-size:10px;letter-spacing:1px;text-transform:uppercase;color:${C.grisTexto};font-weight:600">Resumen</th>
+        </tr>
+        ${bloques}
+      </table>
+    </td></tr>
+    <tr><td style="padding:18px 28px 26px">
+      <p style="margin:0">Saludos,<br>${esc(FIRMA)}</p>
+    </td></tr>
+    <tr><td style="padding:14px 28px;border-top:1px solid ${C.grisBorde};font-size:11px;color:${C.grisTexto}">Latech Factory · <a href="https://latechfactory.com" style="color:${C.azul};text-decoration:none">latechfactory.com</a></td></tr>
+  </table>
+  </td></tr></table>
   </body></html>`;
 }
 
@@ -769,21 +804,32 @@ async function main() {
     const html = htmlProyecto(p, rango);
     const base = `Informe QA ${p.nombre.replace(/[^\w\sáéíóúñÁÉÍÓÚÑ+.-]/g, '')} ${fechaArchivo}`;
     fs.writeFileSync(path.join(SALIDA, `${base}.html`), html);
-    await page.setContent(html, { waitUntil: 'load' });
+    await page.setContent(html, { waitUntil: 'networkidle', timeout: 30000 }).catch(() => page.setContent(html, { waitUntil: 'load' }));
+    await page.evaluate(() => document.fonts.ready).catch(() => {});
     const destino = path.join(SALIDA, `${base}.pdf`);
     await page.pdf({
       path: destino,
       format: 'A4',
       printBackground: true,
-      margin: { top: '16mm', bottom: '16mm', left: '15mm', right: '15mm' },
+      displayHeaderFooter: true,
+      headerTemplate: '<div></div>',
+      footerTemplate: `<div style="width:100%;padding:0 15mm;font-family:Helvetica,Arial,sans-serif;font-size:7pt;color:${C.grisTexto};display:flex;justify-content:space-between;align-items:center"><span style="display:flex;align-items:center;gap:5px">${logoSvg('isologo-azul', 9)}Latech Factory · ${esc(p.nombre)}</span><span><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>`,
+      margin: { top: '14mm', bottom: '18mm', left: '15mm', right: '15mm' },
     });
     pdfs.push(destino);
     console.log(`  • ${p.nombre}: ${estadoProyecto(p).etiqueta} (${p.stats.rondas} rondas, ${p.incidentes.length} incidentes)`);
   }
+  // Logo para el mail en PNG (Gmail y Outlook no muestran SVG), a 3x para pantallas retina.
+  const altoLogoMail = 26;
+  await page.setViewportSize({ width: 1200, height: 300 });
+  await page.setContent(`<html><body style="margin:0;background:transparent">${logoSvg('logo-completo-azul', altoLogoMail * 3)}</body></html>`);
+  const logoPng = path.join(SALIDA, 'logo-latech.png');
+  await page.locator('svg').screenshot({ path: logoPng, omitBackground: true });
   await browser.close();
 
-  const interno = htmlInterno(lista, rango, pdfs);
-  fs.writeFileSync(path.join(SALIDA, 'mail-interno.html'), interno);
+  const logoMail = { alto: altoLogoMail, ancho: Math.round(altoLogoMail * proporcion('logo-completo-azul')) };
+  const interno = htmlInterno(lista, rango, pdfs, { ...logoMail, src: 'cid:logo-latech' });
+  fs.writeFileSync(path.join(SALIDA, 'mail-interno.html'), htmlInterno(lista, rango, pdfs, { ...logoMail, src: 'logo-latech.png' }));
   console.log(`Listo: ${pdfs.length} PDF y mail-interno.html en ${SALIDA}`);
 
   if (!ENVIAR) return;
@@ -803,7 +849,10 @@ async function main() {
     to: destinatarios,
     subject: `Informe semanal de QA · ${diaMes(rango.desde)} al ${diaMes(rango.hasta)}`,
     html: interno,
-    attachments: pdfs.map((f) => ({ filename: path.basename(f), path: f })),
+    attachments: [
+      { filename: 'logo-latech.png', path: logoPng, cid: 'logo-latech' },
+      ...pdfs.map((f) => ({ filename: path.basename(f), path: f })),
+    ],
   });
   console.log(`Mail enviado a ${destinatarios.length} destinatario(s): ${info.messageId}`);
 }
