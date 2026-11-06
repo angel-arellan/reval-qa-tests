@@ -13,9 +13,9 @@ name: Informe semanal de QA por mail (lunes)
 
 on:
   schedule:
-    - cron: '41 11 * * 1' # lunes 08:41 (Argentina)
-    - cron: '41 13 * * 1' # lunes 10:41, por si no corrió el anterior
-    - cron: '41 16 * * 1' # lunes 13:41, por si no corrió ninguno
+    - cron: '30 11 * * 1' # lunes 08:30 (Argentina)
+    - cron: '30 13 * * 1' # lunes 10:30, por si GitHub no disparó el anterior
+    - cron: '30 16 * * 1' # lunes 13:30, por si no corrió ninguno
   workflow_dispatch:
     inputs:
       enviar_a:
