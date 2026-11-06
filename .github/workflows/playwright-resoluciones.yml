@@ -74,7 +74,7 @@ jobs:
       # Celulares y tablets se emulan en Chromium (tamaño, pantalla táctil y user agent del
       # dispositivo), igual que la suite responsive existente.
       - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium || (sleep 30 && npx playwright install --with-deps chromium) || (sleep 60 && npx playwright install --with-deps chromium)
+        run: timeout 420 npx playwright install --with-deps chromium || (sleep 30 && timeout 420 npx playwright install --with-deps chromium) || (sleep 60 && timeout 600 npx playwright install --with-deps chromium)
 
       # Un lote por corrida (3 resoluciones), rotando según la hora: 00 y 16 UTC → lote 0,
       # 04 y 20 → 1, 08 → 2, 12 → 3... En un día pasan todas las resoluciones.

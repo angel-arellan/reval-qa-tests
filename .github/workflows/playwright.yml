@@ -26,7 +26,10 @@ jobs:
       - name: Install Playwright Browsers
         # Reintento: el apt-get de GitHub a veces falla por un mirror caído (exit code 100)
         # y eso disparaba una alerta de Slack sin que ningún test hubiera corrido.
-        run: npx playwright install --with-deps || (sleep 30 && npx playwright install --with-deps) || (sleep 60 && npx playwright install --with-deps)
+        # Solo Chromium (es el único navegador que usan estos tests) y con tope de tiempo: el
+        # 06-nov-2026 la instalación se colgó 52 minutos y la corrida de staging falló sin
+        # haber probado nada; ahora si se cuelga se corta y se reintenta.
+        run: timeout 420 npx playwright install --with-deps chromium || (sleep 30 && timeout 420 npx playwright install --with-deps chromium) || (sleep 60 && timeout 600 npx playwright install --with-deps chromium)
 
       # El panel de Reval se prueba con una clave de solo lectura (Reval → API & MCP): desde
       # GitHub el admin de Shopify pide login y Cloudflare frena la pantalla. Sin la clave, los
@@ -90,7 +93,10 @@ jobs:
       - name: Install Playwright Browsers
         # Reintento: el apt-get de GitHub a veces falla por un mirror caído (exit code 100)
         # y eso disparaba una alerta de Slack sin que ningún test hubiera corrido.
-        run: npx playwright install --with-deps || (sleep 30 && npx playwright install --with-deps) || (sleep 60 && npx playwright install --with-deps)
+        # Solo Chromium (es el único navegador que usan estos tests) y con tope de tiempo: el
+        # 06-nov-2026 la instalación se colgó 52 minutos y la corrida de staging falló sin
+        # haber probado nada; ahora si se cuelga se corta y se reintenta.
+        run: timeout 420 npx playwright install --with-deps chromium || (sleep 30 && timeout 420 npx playwright install --with-deps chromium) || (sleep 60 && timeout 600 npx playwright install --with-deps chromium)
 
       - name: Run Production Tests
         id: run_prod_tests
@@ -151,7 +157,10 @@ jobs:
       - name: Install Playwright Browsers
         # Reintento: el apt-get de GitHub a veces falla por un mirror caído (exit code 100)
         # y eso disparaba una alerta de Slack sin que ningún test hubiera corrido.
-        run: npx playwright install --with-deps || (sleep 30 && npx playwright install --with-deps) || (sleep 60 && npx playwright install --with-deps)
+        # Solo Chromium (es el único navegador que usan estos tests) y con tope de tiempo: el
+        # 06-nov-2026 la instalación se colgó 52 minutos y la corrida de staging falló sin
+        # haber probado nada; ahora si se cuelga se corta y se reintenta.
+        run: timeout 420 npx playwright install --with-deps chromium || (sleep 30 && timeout 420 npx playwright install --with-deps chromium) || (sleep 60 && timeout 600 npx playwright install --with-deps chromium)
 
       - name: Run Theme Storefront Tests
         id: run_theme_tests
