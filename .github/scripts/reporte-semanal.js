@@ -325,6 +325,7 @@ const NOMBRE_AREA = {
 };
 
 const motivos0 = (inc) => [...inc.tests.values()];
+const diaISO = (d) => { const x = partes(d); return `${x.year}-${x.month.padStart(2, '0')}-${x.day.padStart(2, '0')}`; };
 
 async function recolectar(lista, rango) {
   const workflows = [...new Set(lista.flatMap((p) => p.suites.map((s) => s.workflow)))];
@@ -414,6 +415,17 @@ async function recolectar(lista, rango) {
       const motivos = [...inc.tests.values()];
       const bloqueos = motivos.filter((m) => /^Bloqueo en |Just a moment|anti-?bot|HTTP 429/i.test(m)).length;
       if (motivos.length && bloqueos * 2 >= motivos.length) inc.causa = 'bloqueo';
+      // Marcado a mano como interno en tests/config/reporte.js (incidentesInternos).
+      const manual = (cfg.incidentesInternos || []).find((m) => m.proyecto === p.id && diaISO(inc.inicio) >= m.desde && (!m.hasta || diaISO(inc.inicio) <= m.hasta));
+      if (inc.causa === 'sitio' && manual) {
+        inc.causa = 'ajuste';
+        inc.commit = `marcado a mano: ${manual.motivo || ''}`;
+      }
+      // Caída clara del sitio (no carga, error del servidor, página inexistente) vs. una prueba que
+      // dejó de encontrar algo, que puede ser un cambio de diseño: se informan distinto mientras
+      // siguen abiertas.
+      // (Un 404 de un producto puntual no cuenta: suele ser un producto dado de baja.)
+      inc.caida = [...inc.tests.values()].some((m) => /La p[aá]gina no carg[oó]|no respondi[oó] a tiempo|Error 500|net::ERR|ERR_[A-Z]/i.test(m));
       if (inc.causa === 'sitio' && inc.fin && inc.finSha && inc.finSha !== inc.ultimaFalla.sha) {
         const commits = await commitsEntre(inc.ultimaFalla.sha, inc.finSha);
         const claves = [normalizar(p.nombre), normalizar(p.id)];
@@ -444,8 +456,16 @@ function estadoProyecto(p) {
   if (!p.stats.rondas) {
     return { clase: 'gris', etiqueta: 'Recién sumado', resumen: 'Este sitio se sumó al monitoreo esta semana. Desde la próxima, el informe incluye la semana completa de pruebas.' };
   }
+  if (abiertos.some((i) => i.caida)) {
+    return { clase: 'rojo', etiqueta: 'Requiere atención', resumen: `Hay un problema abierto en ${areas(abiertos.filter((i) => i.caida))}: la página no estaba cargando al cierre del informe. Lo estamos siguiendo.` };
+  }
   if (abiertos.length) {
-    return { clase: 'rojo', etiqueta: 'Requiere atención', resumen: `Hay un tema abierto en ${areas(abiertos)} que estamos siguiendo. El detalle está en «Novedades de la semana».` };
+    return {
+      clase: 'amarillo',
+      etiqueta: 'En revisión',
+      revisar: true,
+      resumen: `Desde el ${diaMes(abiertos[0].inicio)} una de las pruebas de ${areas(abiertos)} empezó a fallar. Puede ser un cambio en el diseño del sitio o una falla real: lo estamos revisando.`,
+    };
   }
   if (resueltos.length) {
     return {
@@ -578,7 +598,7 @@ function htmlProyecto(p, rango) {
     else if (!p.stats.rondas) res = '<span style="color:#4b5363">Desde la próxima semana</span>';
     else {
       const incs = porArea(clave);
-      if (incs.some((i) => !i.fin)) res = '<span class="bad">En revisión</span>';
+      if (incs.some((i) => !i.fin)) res = incs.some((i) => !i.fin && i.caida) ? '<span class="bad">Con problemas</span>' : '<span class="warn">En revisión</span>';
       else if (incs.length) res = `<span class="warn">${plural(incs.length, 'interrupción', 'interrupciones')}, ${incs.length === 1 ? 'solucionada' : 'solucionadas'}</span>`;
     }
     return `<tr><td class="area">${esc(titulo)}</td><td>${esc(texto)}</td><td class="res">${res}</td></tr>`;
@@ -588,8 +608,8 @@ function htmlProyecto(p, rango) {
     ? delCliente(p).map((i) => `
       <div class="incidente">
         <div><b>${esc(i.areas.map((a) => NOMBRE_AREA[a][0].toUpperCase() + NOMBRE_AREA[a].slice(1)).join(' y '))}</b></div>
-        <div class="cuando">Detectado: ${esc(fechaHora(i.inicio))} · ${i.fin ? `Solucionado: ${esc(fechaHora(i.fin))}` : '<span class="bad">Sigue abierto al cierre del informe</span>'}</div>
-        <div style="margin-top:4px">${esc(textoIncidente(i))}</div>
+        <div class="cuando">Detectado: ${esc(fechaHora(i.inicio))} · ${i.fin ? `Solucionado: ${esc(fechaHora(i.fin))}` : `<span class="${i.caida ? 'bad' : 'warn'}">${i.caida ? 'Sigue abierto al cierre del informe' : 'En revisión'}</span>`}</div>
+        <div style="margin-top:4px">${esc(textoIncidente(i))}${!i.fin && !i.caida ? ' Puede deberse a un cambio en el diseño del sitio: lo estamos revisando para confirmar si afecta a los compradores.' : ''}</div>
       </div>`).join('')
     : '<p>No hubo incidentes en la semana.</p>';
 
@@ -652,7 +672,12 @@ function resumenEjecutivo(p) {
     if (pantallas > 3) frases.push(`Se probó en computadoras, celulares y tablets (${pantallas} tamaños de pantalla).`);
     else if (pantallas > 1) frases.push('Se probó en computadora, celular y tablet.');
     for (const i of resueltos) frases.push(`Observación: el ${diaMes(i.inicio)} hubo una interrupción en ${i.areas.map((a) => NOMBRE_AREA[a]).join(' y ')}, ya solucionada.`);
-    for (const i of abiertos) frases.push(`Atención: desde el ${diaMes(i.inicio)} hay un tema abierto en ${i.areas.map((a) => NOMBRE_AREA[a]).join(' y ')} que estamos siguiendo.`);
+    for (const i of abiertos) {
+      const que = i.areas.map((a) => NOMBRE_AREA[a]).join(' y ');
+      frases.push(i.caida
+        ? `Atención: desde el ${diaMes(i.inicio)} hay un problema abierto en ${que} (la página no carga).`
+        : `En revisión: desde el ${diaMes(i.inicio)} falla la prueba de ${que}; puede ser un cambio en el diseño del sitio o una falla real.`);
+    }
   }
   const lh = p.lighthouse;
   if (lh?.escritorio?.rendimiento != null || lh?.celular?.rendimiento != null) {
@@ -677,14 +702,18 @@ function htmlInterno(lista, rango, pdfs) {
     .map((p) => ({ p, ...resumenEjecutivo(p) }))
     .sort((a, b) => orden[a.est.clase] - orden[b.est.clase]);
   const conNovedades = filas.filter((f) => f.est.clase === 'rojo' || f.est.clase === 'amarillo');
+  const aRevisar = filas.filter((f) => f.est.clase === 'rojo' || f.est.revisar);
   const intro = conNovedades.length
     ? `${plural(filas.length - conNovedades.length, 'proyecto funcionó', 'proyectos funcionaron')} bien toda la semana y ${conNovedades.length === 1 ? 'uno tiene observaciones' : `${conNovedades.length} tienen observaciones`}: ${conNovedades.map((f) => f.p.nombre).join(', ')}.`
     : 'Todos los proyectos funcionaron bien toda la semana.';
+  const avisoRevisar = aRevisar.length
+    ? `<p style="padding:10px 12px;background:#fdf1d8;border-radius:6px"><b>Revisar antes de reenviar:</b> ${esc(aRevisar.map((f) => f.p.nombre).join(', '))}. Tiene${aRevisar.length === 1 ? '' : 'n'} una prueba fallando al cierre del informe que puede ser un cambio de diseño del sitio o una falla real.</p>`
+    : '';
 
   const bloques = filas.map(({ p, est, texto }) => `
     <tr>
       <td style="padding:10px 12px 10px 0;border-bottom:1px solid #eceef2;vertical-align:top;width:30%">
-        <b>${esc(p.nombre)}</b><br><span class="estado ${est.clase}" style="margin-top:4px">${esc(est.etiqueta)}</span>
+        <b>${esc(p.nombre)}</b><br><span class="estado ${est.clase}" style="margin-top:4px">${esc(est.etiqueta)}</span>${est.clase === 'rojo' || est.revisar ? '<br><span style="font-size:8.5pt;color:#8a5a00">Revisar antes de reenviar</span>' : ''}
       </td>
       <td style="padding:10px 0;border-bottom:1px solid #eceef2;vertical-align:top;color:#33394a">${esc(texto)}</td>
     </tr>`).join('');
@@ -692,7 +721,8 @@ function htmlInterno(lista, rango, pdfs) {
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><style>${ESTILOS} body{font-size:10.5pt;max-width:720px}</style></head><body>
     <p>Hola,</p>
     <p>Este es el resumen de QA de todos los proyectos retainer de la semana del ${esc(diaMes(rango.desde))} al ${esc(diaMes(rango.hasta))}. ${esc(intro)}</p>
-    <p>Abajo va lo principal de cada proyecto. El informe completo de cada uno va adjunto en PDF (${pdfs.length} en total), listo para reenviar al cliente.</p>
+    ${avisoRevisar}
+    <p>Abajo va lo principal de cada proyecto. El informe completo de cada uno va adjunto en PDF (${pdfs.length} en total). A cada cliente se le reenvía solo su PDF: este mail tiene el resumen de todos los proyectos.</p>
     <table style="border-collapse:collapse;width:100%;font-size:10pt;margin-top:8px">
       <thead><tr>
         <th style="text-align:left;padding:6px 12px 6px 0">Proyecto</th>

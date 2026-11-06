@@ -13,6 +13,7 @@
 // - revisamosExtra: filas extra de "Qué revisamos" para un sitio de sites.js (mismo formato).
 //   Una cuarta posición opcional fija el texto del resultado (ej. 'Revisión manual') para algo
 //   que no se verifica de forma automática.
+// - incidentesInternos: fallas marcadas a mano como de nuestras pruebas (no salen al cliente).
 // - excluir: ids que no deben generar PDF.
 
 module.exports = {
@@ -81,6 +82,11 @@ module.exports = {
       ['contacto', 'Formulario de contacto', 'El formulario está visible y habilitado, con su botón de envío. Nunca se completa ni se envía.'],
     ],
   },
+
+  // Fallas que el equipo ya confirmó que son de nuestras pruebas (ej. el sitio cambió el diseño y
+  // todavía no se actualizó la prueba), para que no salgan en el informe aunque sigan abiertas.
+  // { proyecto: '<id>', desde: 'AAAA-MM-DD', hasta: 'AAAA-MM-DD' (opcional), motivo: '...' }
+  incidentesInternos: [],
 
   excluir: [],
 };
