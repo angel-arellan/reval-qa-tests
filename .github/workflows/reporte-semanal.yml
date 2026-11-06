@@ -18,8 +18,12 @@ on:
     - cron: '30 16 * * 1' # lunes 13:30, por si no corrió ninguno
   workflow_dispatch:
     inputs:
+      prueba:
+        description: 'Prueba: mandar solo a la cuenta que envía (secret MAIL_USERNAME), sin dejar el mail a la vista en el log'
+        type: boolean
+        default: false
       enviar_a:
-        description: 'Mandar solo a este mail (para probar). Vacío = destinatarios del secret REPORTE_DESTINATARIOS'
+        description: 'Mandar solo a este mail (ojo: el repo es público y queda visible en el log). Vacío = destinatarios del secret REPORTE_DESTINATARIOS'
         required: false
       ultimos_dias:
         description: 'Usar los últimos N días hasta ahora en vez de la semana anterior completa (ej. 7)'
@@ -76,7 +80,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
           MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
-          REPORTE_DESTINATARIOS: ${{ inputs.enviar_a || secrets.REPORTE_DESTINATARIOS }}
+          REPORTE_DESTINATARIOS: ${{ inputs.enviar_a || (inputs.prueba && secrets.MAIL_USERNAME) || secrets.REPORTE_DESTINATARIOS }}
           REPORTE_FIRMA: ${{ vars.REPORTE_FIRMA }}
           ULTIMOS: ${{ inputs.ultimos_dias }}
         run: node .github/scripts/reporte-semanal.js --salida reporte-semanal --enviar ${ULTIMOS:+--ultimos $ULTIMOS}
