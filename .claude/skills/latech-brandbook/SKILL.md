@@ -1,11 +1,13 @@
 ---
 name: latech-brandbook
-description: Brandbook de Latech Factory (logos, colores, tipografía, voz y reglas de uso). Usar siempre que haya que producir o brandear material con la marca Latech: informes y PDFs para clientes, mails, presentaciones, documentos, páginas o artifacts, firmas o cualquier pieza que diga "Latech". También cuando pidan "brandear", "con la marca de Latech", "con el logo" o "con el brandbook".
+description: Brandbook de LATECH (logos, colores, tipografía, voz y reglas de uso). Usar siempre que haya que producir o brandear material con la marca Latech: informes y PDFs para clientes, mails, presentaciones, documentos, páginas o artifacts, firmas o cualquier pieza que diga "Latech". También cuando pidan "brandear", "con la marca de Latech", "con el logo" o "con el brandbook".
 ---
 
-# Brandbook de Latech Factory
+# Brandbook de LATECH
 
-Latech Factory es una agencia de ecommerce (Shopify Plus Partner) con el lema «Driving Ecommerce Excellence». La marca es sobria y moderna: mucho blanco, negro y un único color de acento, el azul Latech. Los títulos son grandes y finos, y hay aire alrededor de cada bloque.
+LATECH es una agencia de ecommerce (Shopify Plus Partner) con el lema «Driving Ecommerce Excellence». La marca es sobria y moderna: mucho blanco, negro y un único color de acento, el azul Latech. Los títulos son grandes y finos, y hay aire alrededor de cada bloque.
+
+**Nombre de la marca: siempre «LATECH», en mayúsculas.** Nunca «Latech Factory» (lo pidió el CEO, nov-2026). `latechfactory.com` se usa solo como dirección web, no como nombre. Ejemplos: «Equipo de QA · LATECH», «LATECH · latechfactory.com».
 
 > Origen de estos valores: los logos oficiales que pasó el CEO (nov-2026) y la tipografía y los colores que usa latechfactory.com. Si aparece un brandbook oficial en PDF con otros valores, ese manda: actualizar este archivo.
 
@@ -91,7 +93,7 @@ font-family: 'DM Sans', Helvetica, Arial, sans-serif;
 - Para clientes, sin tecnicismos: explicar qué se hizo y qué significa para su negocio.
 - Positivo y concreto: primero lo que funciona y después las observaciones, cada una con su estado («ya solucionada», «en revisión»).
 - Que no suene a texto generado por IA: frases cortas, nada de rellenos ni de palabras como «robusto», «integral» o «potenciar», y sin emojis.
-- Firma: «Equipo de QA · Latech Factory» (o el área que corresponda) y `latechfactory.com`.
+- Firma: «Equipo de QA · LATECH» (o el área que corresponda) y `latechfactory.com`.
 
 ## Plantilla rápida (HTML / PDF)
 
@@ -104,7 +106,7 @@ font-family: 'DM Sans', Helvetica, Arial, sans-serif;
 <div style="width:40px;height:3px;background:#2447A4;margin:10px 0 18px"></div>
 ```
 
-Pie de página: isologo azul de unos 10 px, más «Latech Factory · latechfactory.com» en gris texto, 7,5 pt.
+Pie de página: isologo azul de unos 10 px, más «LATECH · latechfactory.com» en gris texto, 7,5 pt.
 
 ## Dónde ya está aplicado
 

@@ -88,5 +88,11 @@ module.exports = {
   // { proyecto: '<id>', desde: 'AAAA-MM-DD', hasta: 'AAAA-MM-DD' (opcional), motivo: '...' }
   incidentesInternos: [],
 
+  // Nombre que muestra el informe cuando no debe ser el `name` de sites.js. El `name` sigue
+  // igual porque arma los nombres de los jobs de GitHub, y el informe los busca por ese nombre.
+  nombres: {
+    LATECH_FACTORY: 'Web LATECH', // La marca es LATECH, no «Latech Factory» (pedido del CEO, nov-2026).
+  },
+
   excluir: [],
 };

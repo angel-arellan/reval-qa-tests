@@ -40,7 +40,7 @@ const { COLORES: C, FUENTE, FUENTE_LINK, logoSvg, proporcion } = require('./marc
 const REPO = process.env.GITHUB_REPOSITORY || 'angel-arellan/reval-qa-tests';
 const TOKEN = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
 const TZ = 'America/Argentina/Buenos_Aires';
-const FIRMA = process.env.REPORTE_FIRMA || 'Equipo de QA · Latech Factory';
+const FIRMA = process.env.REPORTE_FIRMA || 'Equipo de QA · LATECH';
 const MAX_LOGS = 120;
 
 // Frecuencia programada de cada workflow (en horas), para comparar rondas previstas vs reales.
@@ -157,7 +157,7 @@ function proyectos() {
       const sinCompra = !!s.knownProductionBug;
       return {
         id: s.id,
-        nombre: s.name,
+        nombre: (cfg.nombres || {})[s.id] || s.name,
         url: s.baseUrl,
         site: s,
         nota: cfg.notas[s.id] || null,
@@ -738,7 +738,7 @@ function htmlInterno(lista, rango, pdfs, logo) {
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.grisFondo}"><tr><td align="center" style="padding:24px 12px">
   <table role="presentation" width="680" cellpadding="0" cellspacing="0" style="max-width:680px;width:100%;background:${C.blanco};border-radius:10px;${f};color:${C.tinta};font-size:14px;line-height:1.55">
     <tr><td style="padding:24px 28px 18px;border-bottom:1px solid ${C.grisBorde}">
-      <img src="${logo.src}" alt="Latech" width="${logo.ancho}" height="${logo.alto}" style="display:block;border:0">
+      <img src="${logo.src}" alt="LATECH" width="${logo.ancho}" height="${logo.alto}" style="display:block;border:0">
     </td></tr>
     <tr><td style="padding:26px 28px 6px">
       <div style="${f};font-size:11px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:${C.azul}">Informe semanal de QA</div>
@@ -763,7 +763,7 @@ function htmlInterno(lista, rango, pdfs, logo) {
     <tr><td style="padding:18px 28px 26px">
       <p style="margin:0">Saludos,<br>${esc(FIRMA)}</p>
     </td></tr>
-    <tr><td style="padding:14px 28px;border-top:1px solid ${C.grisBorde};font-size:11px;color:${C.grisTexto}">Latech Factory · <a href="https://latechfactory.com" style="color:${C.azul};text-decoration:none">latechfactory.com</a></td></tr>
+    <tr><td style="padding:14px 28px;border-top:1px solid ${C.grisBorde};font-size:11px;color:${C.grisTexto}">LATECH · <a href="https://latechfactory.com" style="color:${C.azul};text-decoration:none">latechfactory.com</a></td></tr>
   </table>
   </td></tr></table>
   </body></html>`;
@@ -813,7 +813,7 @@ async function main() {
       printBackground: true,
       displayHeaderFooter: true,
       headerTemplate: '<div></div>',
-      footerTemplate: `<div style="width:100%;padding:0 15mm;font-family:Helvetica,Arial,sans-serif;font-size:7pt;color:${C.grisTexto};display:flex;justify-content:space-between;align-items:center"><span style="display:flex;align-items:center;gap:5px">${logoSvg('isologo-azul', 9)}Latech Factory · ${esc(p.nombre)}</span><span><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>`,
+      footerTemplate: `<div style="width:100%;padding:0 15mm;font-family:Helvetica,Arial,sans-serif;font-size:7pt;color:${C.grisTexto};display:flex;justify-content:space-between;align-items:center"><span style="display:flex;align-items:center;gap:5px">${logoSvg('isologo-azul', 9)}LATECH · ${esc(p.nombre)}</span><span><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>`,
       margin: { top: '14mm', bottom: '18mm', left: '15mm', right: '15mm' },
     });
     pdfs.push(destino);
