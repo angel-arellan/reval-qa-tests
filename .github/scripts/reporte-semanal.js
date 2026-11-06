@@ -274,6 +274,8 @@ const NOMBRE_AREA = {
   cuenta: 'cuenta de cliente', contacto: 'formulario de contacto', celular: 'celulares y tablets', tecnico: 'salud técnica', admin: 'panel de administración', otro: 'pruebas generales',
 };
 
+const motivos0 = (inc) => [...inc.tests.values()];
+
 async function recolectar(lista, rango) {
   const workflows = [...new Set(lista.flatMap((p) => p.suites.map((s) => s.workflow)))];
   const porJob = new Map(); // nombre de job → [{ run, job, estado }]
@@ -349,6 +351,12 @@ async function recolectar(lista, rango) {
       if (!inc.areas.length) inc.areas = ['otro'];
       inc.dispositivos = [...new Set([...inc.tests.keys()].map(dispositivoDe).filter(Boolean))];
       inc.causa = 'sitio';
+      // Falta o rechazo de la clave de Reval: es configuración nuestra, no un problema del cliente.
+      // No cambia el estado ni aparece en el PDF (las alertas de Slack ya avisan al equipo).
+      if (motivos0(inc).length && motivos0(inc).every((m) => /No se pudo entrar al panel de Reval/i.test(m))) {
+        inc.causa = 'config';
+        continue;
+      }
       // "Bloqueo en X" = la página respondió con el desafío anti-robots ("Just a moment...")
       // a los servidores de GitHub. Un comprador real no lo ve: no es una caída de la tienda.
       // Si la mayoría de las pruebas que fallaron chocaron con esa verificación, el resto de la
@@ -398,6 +406,9 @@ function htmlActividades(lista) {
 // ---------------------------------------------------------------------------------------------
 // Textos
 
+// Incidentes que se cuentan para el cliente: los de configuración nuestra (clave de Reval) no.
+const visibles = (p) => p.incidentes.filter((i) => i.causa !== 'config');
+
 function estadoProyecto(p) {
   const abiertos = p.incidentes.filter((i) => !i.fin && i.causa === 'sitio');
   const delSitio = p.incidentes.filter((i) => i.causa === 'sitio');
@@ -416,8 +427,8 @@ function estadoProyecto(p) {
       resumen: `La semana tuvo ${plural(delSitio.length, 'interrupción', 'interrupciones')}, ya ${delSitio.length === 1 ? 'resuelta' : 'resueltas'}. Fuera de eso, todo funcionó con normalidad.`,
     };
   }
-  if (p.incidentes.length) {
-    const ajuste = p.incidentes.some((i) => i.causa === 'ajuste');
+  if (visibles(p).length) {
+    const ajuste = visibles(p).some((i) => i.causa === 'ajuste');
     return {
       clase: 'verde',
       etiqueta: 'Funcionando bien',
@@ -488,10 +499,12 @@ const ESTILOS = `
 
 function htmlProyecto(p, rango) {
   const est = estadoProyecto(p);
-  const porArea = (clave) => p.incidentes.filter((i) => i.areas.includes(clave));
+  const porArea = (clave) => visibles(p).filter((i) => i.areas.includes(clave));
+  const sinEntrar = (clave) => p.incidentes.some((i) => i.causa === 'config' && i.areas.includes(clave)) && !porArea(clave).length;
   const filas = p.revisamos.map(([clave, titulo, texto, fijo]) => {
     if (fijo) return `<tr><td class="area">${esc(titulo)}</td><td>${esc(texto)}</td><td class="res"><span style="color:#4b5363;font-weight:600">${esc(fijo)}</span></td></tr>`;
     if (!p.stats.rondas) return `<tr><td class="area">${esc(titulo)}</td><td>${esc(texto)}</td><td class="res"><span style="color:#4b5363">Sin datos todavía</span></td></tr>`;
+    if (sinEntrar(clave)) return `<tr><td class="area">${esc(titulo)}</td><td>${esc(texto)}</td><td class="res"><span style="color:#4b5363">Sin datos esta semana</span></td></tr>`;
     const incs = porArea(clave);
     const delSitio = incs.filter((i) => i.causa === 'sitio');
     let res = '<span class="ok">Sin problemas</span>';
@@ -504,8 +517,8 @@ function htmlProyecto(p, rango) {
     return `<tr><td class="area">${esc(titulo)}</td><td>${esc(texto)}</td><td class="res">${res}</td></tr>`;
   }).join('');
 
-  const incidentes = p.incidentes.length
-    ? p.incidentes.map((i) => `
+  const incidentes = visibles(p).length
+    ? visibles(p).map((i) => `
       <div class="incidente">
         <div><b>${esc({ ajuste: 'Actualización de pruebas', bloqueo: 'Pruebas frenadas por la protección anti-robots' }[i.causa] || i.areas.map((a) => NOMBRE_AREA[a][0].toUpperCase() + NOMBRE_AREA[a].slice(1)).join(' y '))}</b></div>
         <div class="cuando">Detectado: ${esc(fechaHora(i.inicio))} · ${i.fin ? `${{ ajuste: 'Prueba actualizada', bloqueo: 'Pruebas normalizadas' }[i.causa] || 'Funcionando de nuevo'}: ${esc(fechaHora(i.fin))}` : '<span class="bad">Sigue abierto al cierre del informe</span>'}</div>
@@ -551,51 +564,55 @@ function htmlProyecto(p, rango) {
   </body></html>`;
 }
 
-function htmlInterno(lista, rango, rondas, pdfs, manual = []) {
-  const filas = lista.map((p) => {
-    const est = estadoProyecto(p);
-    const delSitio = p.incidentes.filter((i) => i.causa === 'sitio').length;
-    const ajustes = p.incidentes.filter((i) => i.causa !== 'sitio').length;
-    return `<tr>
-      <td style="padding:6px 8px;border-bottom:1px solid #eceef2"><b>${esc(p.nombre)}</b></td>
-      <td style="padding:6px 8px;border-bottom:1px solid #eceef2"><span class="estado ${est.clase}">${esc(est.etiqueta)}</span></td>
-      <td style="padding:6px 8px;border-bottom:1px solid #eceef2;text-align:right">${p.stats.rondas}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #eceef2;text-align:right">${p.stats.pruebas.toLocaleString('es-AR')}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #eceef2;text-align:right">${delSitio}${ajustes ? ` <span style="color:#5b6475">(+${ajustes} de pruebas)</span>` : ''}</td>
-      <td style="padding:6px 8px;border-bottom:1px solid #eceef2;text-align:right">${p.stats.recuperadas}</td>
-    </tr>`;
-  }).join('');
+// Resumen ejecutivo de un proyecto para el cuerpo del mail: estado, qué pasó en la tienda y el
+// QA manual de la semana, en dos o tres oraciones. El detalle queda en el PDF adjunto.
+function resumenEjecutivo(p) {
+  const est = estadoProyecto(p);
+  const frases = [];
+  const delSitio = p.incidentes.filter((i) => i.causa === 'sitio');
+  if (!p.stats.rondas) {
+    frases.push(p.interno ? 'Todavía no hay rondas de prueba registradas.' : 'Se sumó al monitoreo esta semana; el primer informe completo llega la semana que viene.');
+  } else if (!delSitio.length) {
+    frases.push(`Las pruebas automáticas pasaron toda la semana: ${p.stats.pruebas.toLocaleString('es-AR')} pruebas sin fallas ${p.site?.ecommerce === false ? 'del sitio' : 'de la tienda'}.`);
+  } else {
+    for (const i of delSitio) {
+      const que = i.areas.map((a) => NOMBRE_AREA[a]).join(' y ');
+      frases.push(i.fin
+        ? `Hubo una interrupción en ${que} (${fechaHora(i.inicio)}), ya resuelta.`
+        : `Hay un tema abierto en ${que} desde el ${fechaHora(i.inicio)}.`);
+    }
+  }
+  for (const a of p.actividades || []) {
+    frases.push(`QA manual: ${a.titulo.replace(/\s*\([^)]*\)\s*$/, '')} — ${a.resultado.toLowerCase()}${a.hallazgos?.length ? `, ${plural(a.hallazgos.length, 'hallazgo', 'hallazgos')}` : ''}.`);
+  }
+  if (p.nota) frases.push('Tiene un punto pendiente para tener en cuenta (detalle en el PDF).');
+  return { est, texto: frases.join(' ') };
+}
 
-  const detalle = lista.filter((p) => p.incidentes.length).map((p) => `
-    <p style="margin:14px 0 4px"><b>${esc(p.nombre)}</b></p>
-    <ul style="margin:0;padding-left:18px">${p.incidentes.map((i) => `
-      <li style="margin-bottom:6px">${esc(fechaHora(i.inicio))} → ${i.fin ? esc(fechaHora(i.fin)) : '<b>sigue abierto</b>'} · ${{ ajuste: `ajuste de pruebas (<i>${esc(i.commit)}</i>)`, bloqueo: 'bloqueo anti-robots en CI (no va como falla)' }[i.causa] || 'falla en la tienda'}
-        <br><span style="color:#5b6475">${[...i.tests].map(([n, m]) => `${esc(n)}: ${esc(m)}`).join('<br>') || 'sin detalle en el log'}</span></li>`).join('')}
-    </ul>`).join('');
+function htmlInterno(lista, rango, pdfs) {
+  const orden = { rojo: 0, amarillo: 1, verde: 2, gris: 3 };
+  const filas = lista
+    .map((p) => ({ p, ...resumenEjecutivo(p) }))
+    .sort((a, b) => orden[a.est.clase] - orden[b.est.clase]);
+  const atencion = filas.filter((f) => f.est.clase === 'rojo' || f.est.clase === 'amarillo');
+  const intro = atencion.length
+    ? `${plural(filas.length - atencion.length, 'proyecto funcionó', 'proyectos funcionaron')} bien toda la semana. ${atencion.length === 1 ? 'Uno tiene novedades' : `${atencion.length} tienen novedades`}: ${atencion.map((f) => f.p.nombre).join(', ')}.`
+    : `Los ${filas.length} proyectos funcionaron bien toda la semana.`;
 
-  const avisos = Object.entries(rondas)
-    .map(([wf, n]) => {
-      const previstas = Math.round((rango.hasta - rango.desde) / 3600e3 / (FRECUENCIA_HORAS[wf] || 1));
-      return n < previstas * 0.6 ? `<li>${esc(wf)}: corrió ${n} veces de ${previstas} previstas.</li>` : '';
-    })
-    .join('');
+  const bloques = filas.map(({ p, est, texto }) => `
+    <tr>
+      <td style="padding:10px 12px 10px 0;border-bottom:1px solid #eceef2;vertical-align:top;width:34%">
+        <b>${esc(p.nombre)}</b><br><span class="estado ${est.clase}" style="margin-top:4px">${esc(est.etiqueta)}</span>
+      </td>
+      <td style="padding:10px 0;border-bottom:1px solid #eceef2;vertical-align:top;color:#33394a">${esc(texto)}</td>
+    </tr>`).join('');
 
-  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><style>${ESTILOS} body{font-size:10.5pt;max-width:760px}</style></head><body>
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><style>${ESTILOS} body{font-size:10.5pt;max-width:720px}</style></head><body>
     <p>Hola,</p>
-    <p>Te paso el resumen de QA de la semana del ${esc(diaMes(rango.desde))} al ${esc(diaMes(rango.hasta))}.
-    Adjunto va el informe de cada proyecto en PDF, escrito para poder reenviarlo tal cual al cliente.</p>
-    <table style="border-collapse:collapse;width:100%;font-size:10pt">
-      <thead><tr>
-        <th style="text-align:left;padding:6px 8px">Proyecto</th><th style="text-align:left;padding:6px 8px">Estado</th>
-        <th style="text-align:right;padding:6px 8px">Rondas</th><th style="text-align:right;padding:6px 8px">Pruebas</th>
-        <th style="text-align:right;padding:6px 8px">Incidentes</th><th style="text-align:right;padding:6px 8px">Fallas que se recuperaron solas</th>
-      </tr></thead><tbody>${filas}</tbody></table>
-    ${detalle ? `<h2>Detalle técnico (no va en los PDF)</h2>${detalle}` : ''}
-    ${manual.length ? `<h2>Trabajo de QA manual de la semana</h2><ul style="padding-left:18px">${manual.map((a) => `
-      <li style="margin-bottom:6px"><b>${esc(fechaCorta(a.fecha))} · ${esc(a.proyectos.map((id) => lista.find((p) => p.id === id)?.nombre || id).join(', '))}</b>: ${esc(a.titulo)} (${esc(a.resultado)})${a.informe ? ` · <a href="${esc(a.informe)}">informe completo</a>` : ''}</li>`).join('')}</ul>` : ''}
-    ${avisos ? `<h2>Para revisar</h2><p>GitHub no disparó todas las corridas programadas:</p><ul>${avisos}</ul>` : ''}
-    <p style="margin-top:18px">PDF adjuntos: ${pdfs.length}.</p>
-    <p>Saludos,<br>${esc(FIRMA)}</p>
+    <p>Este es el resumen de calidad de la semana del ${esc(diaMes(rango.desde))} al ${esc(diaMes(rango.hasta))}. ${esc(intro)}</p>
+    <p>Abajo va lo principal de cada proyecto. El informe completo de cada uno va adjunto en PDF (${pdfs.length} en total), listo para reenviar al cliente.</p>
+    <table style="border-collapse:collapse;width:100%;font-size:10pt;margin-top:8px">${bloques}</table>
+    <p style="margin-top:18px">Saludos,<br>${esc(FIRMA)}</p>
   </body></html>`;
 }
 
@@ -644,7 +661,7 @@ async function main() {
   }
   await browser.close();
 
-  const interno = htmlInterno(lista, rango, rondas, pdfs, enPeriodo);
+  const interno = htmlInterno(lista, rango, pdfs);
   fs.writeFileSync(path.join(SALIDA, 'mail-interno.html'), interno);
   console.log(`Listo: ${pdfs.length} PDF y mail-interno.html en ${SALIDA}`);
 

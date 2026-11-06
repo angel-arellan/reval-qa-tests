@@ -6,6 +6,6 @@ const { test } = require('@playwright/test');
 const { testsDelPanel } = require('./helpers/reval-mcp');
 
 test.describe('Reval PRODUCCIÓN – Panel de administración (datos de cada módulo)', () => {
-  test.describe.configure({ mode: 'serial', timeout: 60000 });
+  test.describe.configure({ timeout: 60000 });
   testsDelPanel(test, { prefijo: 'PROD', url: 'https://api.appreval.com/mcp', secreto: 'REVAL_PROD_API_KEY', conDatos: true });
 });
