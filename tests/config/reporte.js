@@ -65,12 +65,11 @@ module.exports = {
   ],
 
   notas: {
-    SWISSGEAR_COM:
-      'La prueba automática de carrito y checkout está en pausa en esta tienda mientras confirmamos la corrección de un problema al cambiar cantidades dentro del carrito.',
+    // Solo temas de la tienda que le sirven al cliente, sin hablar de cómo funcionan las pruebas.
     LUSSOCLOUD:
-      'En la ficha de producto, después de elegir talle o color, el botón para agregar al carrito deja de responder por un error del tema. Ya está reportado; mientras se corrige, la prueba automática de carrito y checkout queda en pausa.',
+      'En la ficha de producto, después de elegir talle o color, el botón para agregar al carrito deja de responder por un error del tema. Ya está reportado para corregir.',
     ADEPAC:
-      'El botón «Comprar» de la ficha de producto lleva a la publicación de Mercado Libre en lugar de agregar al carrito de la tienda. Si es intencional no hace falta ningún cambio; por eso la prueba de carrito y checkout queda en pausa.',
+      'El botón «Comprar» de la ficha de producto lleva a la publicación de Mercado Libre en lugar de agregar al carrito de la tienda. Si es intencional, no hace falta ningún cambio.',
     INTI_TEA_PROFESIONAL:
       'Al ser una tienda mayorista, los precios y la compra solo se ven con una cuenta aprobada, así que el carrito y el checkout no se prueban como visitante.',
   },
