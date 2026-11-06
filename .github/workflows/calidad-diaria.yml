@@ -1,0 +1,50 @@
+name: Calidad diaria - Rendimiento (Lighthouse), Seguridad y Estabilidad
+
+# Una vez por día (con un segundo horario por si GitHub no dispara el primero) mide la home de
+# cada proyecto con Google Lighthouse en celular y escritorio, y corre los chequeos pasivos de
+# seguridad y estabilidad (.github/scripts/seguridad.js). Los resultados quedan en el log y los
+# lee el informe semanal. No alerta a Slack: es información para el informe, no un monitoreo.
+# Solo lectura: no envía formularios, no prueba ataques ni hace pruebas de carga.
+
+on:
+  schedule:
+    - cron: '37 9 * * *' # 06:37 (Argentina)
+    - cron: '37 21 * * *' # 18:37 (Argentina)
+  workflow_dispatch:
+
+concurrency:
+  group: calidad-diaria
+  cancel-in-progress: false
+
+jobs:
+  calidad:
+    name: Rendimiento, seguridad y estabilidad
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm ci || (sleep 20 && npm ci)
+          npm install --no-save lighthouse@13.5.0
+
+      - name: Install Chromium
+        run: timeout 420 npx playwright install --with-deps chromium || (sleep 30 && timeout 420 npx playwright install --with-deps chromium)
+
+      - name: Seguridad y estabilidad
+        run: node .github/scripts/seguridad.js
+
+      # Si se carga el secret PAGESPEED_API_KEY se usan los números de PageSpeed Insights; si no,
+      # Lighthouse corre acá mismo con el Chromium de Playwright.
+      - name: Rendimiento (Google Lighthouse)
+        env:
+          PAGESPEED_API_KEY: ${{ secrets.PAGESPEED_API_KEY }}
+        run: |
+          export CHROME_PATH="$(node -e "console.log(require('@playwright/test').chromium.executablePath())")"
+          node .github/scripts/lighthouse.js

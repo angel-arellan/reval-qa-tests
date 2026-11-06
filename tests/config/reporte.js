@@ -14,7 +14,6 @@
 //   Una cuarta posición opcional fija el texto del resultado (ej. 'Revisión manual') para algo
 //   que no se verifica de forma automática.
 // - excluir: ids que no deben generar PDF.
-// El trabajo de QA manual de cada semana se carga en tests/config/actividades-qa.js.
 
 module.exports = {
   extras: [

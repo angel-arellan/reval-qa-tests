@@ -34,7 +34,6 @@ const { execSync } = require('child_process');
 const RAIZ = path.resolve(__dirname, '..', '..');
 const sites = require(path.join(RAIZ, 'tests/config/sites.js'));
 const cfg = require(path.join(RAIZ, 'tests/config/reporte.js'));
-const actividades = require(path.join(RAIZ, 'tests/config/actividades-qa.js'));
 const { resoluciones } = require(path.join(RAIZ, 'tests/config/resoluciones.js'));
 
 const REPO = process.env.GITHUB_REPOSITORY || 'angel-arellan/reval-qa-tests';
@@ -230,16 +229,67 @@ function fallasDelLog(log) {
   return [...vistos].map(([nombre, motivo]) => ({ nombre, motivo }));
 }
 
-async function corridas(workflow, { desde, hasta }) {
+async function corridas(workflow, { desde, hasta }, { soloProgramadas = true } = {}) {
   const rango = `${desde.toISOString().replace(/\.\d+Z$/, 'Z')}..${hasta.toISOString().replace(/\.\d+Z$/, 'Z')}`;
   const out = [];
   for (let pagina = 1; pagina <= 10; pagina++) {
-    const d = await gh(`/repos/${REPO}/actions/workflows/${workflow}/runs?event=schedule&per_page=100&page=${pagina}&created=${encodeURIComponent(rango)}`);
+    const d = await gh(`/repos/${REPO}/actions/workflows/${workflow}/runs?${soloProgramadas ? 'event=schedule&' : ''}per_page=100&page=${pagina}&created=${encodeURIComponent(rango)}`);
     if (!d) return null; // el workflow todavía no existe en GitHub
     out.push(...d.workflow_runs);
     if (d.workflow_runs.length < 100) break;
   }
   return out.filter((r) => r.status === 'completed');
+}
+
+// Rendimiento (Lighthouse) y seguridad: lee las líneas que dejan .github/scripts/lighthouse.js
+// y seguridad.js en el log de calidad-diaria.yml. Lighthouse: mediana de la semana por métrica.
+// Seguridad: la última medición; estabilidad: promedio de la semana.
+const mediana = (v) => {
+  const n = v.filter((x) => typeof x === 'number').sort((a, b) => a - b);
+  return n.length ? n[Math.floor((n.length - 1) / 2)] : null;
+};
+async function recolectarCalidad(rango) {
+  const lh = {};
+  const seg = {};
+  const runs = ((await corridas('calidad-diaria.yml', rango, { soloProgramadas: false })) || []).filter((r) => r.conclusion === 'success');
+  for (const run of runs.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))) {
+    const jobs = (await gh(`/repos/${REPO}/actions/runs/${run.id}/jobs`))?.jobs || [];
+    for (const job of jobs) {
+      const log = await gh(`/repos/${REPO}/actions/jobs/${job.id}/logs`, { texto: true }).catch(() => null);
+      for (const linea of (log || '').split('\n')) {
+        const m = linea.match(/(LIGHTHOUSE_RESULTADO|SEGURIDAD_RESULTADO) (\{.*\})\s*$/);
+        if (!m) continue;
+        let d;
+        try { d = JSON.parse(m[2]); } catch { continue; }
+        if (m[1] === 'LIGHTHOUSE_RESULTADO') ((lh[d.id] ||= {})[d.estrategia] ||= []).push(d);
+        else (seg[d.id] ||= []).push(d);
+      }
+    }
+  }
+  const lighthouse = {};
+  for (const [id, porEstrategia] of Object.entries(lh)) {
+    lighthouse[id] = {};
+    for (const [estr, med] of Object.entries(porEstrategia)) {
+      lighthouse[id][estr] = { mediciones: med.length };
+      for (const k of ['rendimiento', 'accesibilidad', 'buenasPracticas', 'seo', 'lcpMs']) lighthouse[id][estr][k] = mediana(med.map((x) => x[k]));
+    }
+  }
+  const seguridad = {};
+  for (const [id, lista] of Object.entries(seg)) {
+    const validas = lista.filter((x) => !x.error);
+    if (!validas.length) continue;
+    const ultimo = validas[validas.length - 1];
+    const est = validas.map((x) => x.estabilidad).filter(Boolean);
+    seguridad[id] = {
+      ...ultimo,
+      estabilidadSemana: {
+        visitas: est.reduce((n, e) => n + e.visitas, 0),
+        errores: est.reduce((n, e) => n + e.errores, 0),
+        promedioMs: mediana(est.map((e) => e.promedioMs)),
+      },
+    };
+  }
+  return { lighthouse, seguridad };
 }
 
 const AREAS = [
@@ -380,77 +430,34 @@ async function recolectar(lista, rango) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Trabajo de QA manual (tests/config/actividades-qa.js)
-
-const diaISO = (d) => { const p = partes(d); return `${p.year}-${p.month.padStart(2, '0')}-${p.day.padStart(2, '0')}`; };
-function actividadesDelPeriodo(rango) {
-  const desde = diaISO(rango.desde);
-  const hasta = diaISO(rango.hasta);
-  return actividades.filter((a) => a.fecha >= desde && a.fecha <= hasta).sort((a, b) => a.fecha.localeCompare(b.fecha));
-}
-const fechaCorta = (iso) => { const [, m, d] = iso.split('-'); return `${Number(d)}/${Number(m)}`; };
-const CLASE_RESULTADO = { Aprobado: 'verde', 'Aprobado con observaciones': 'amarillo', 'Con problemas': 'rojo', Parcial: 'gris' };
-
-function htmlActividades(lista) {
-  if (!lista?.length) return '';
-  return `<h2>Trabajo de QA de la semana</h2>${lista.map((a) => `
-    <div class="incidente">
-      <div><b>${esc(a.titulo)}</b> <span class="estado ${CLASE_RESULTADO[a.resultado] || 'gris'}">${esc(a.resultado)}</span></div>
-      <div class="cuando">${esc(fechaCorta(a.fecha))}</div>
-      <div style="margin-top:4px">${esc(a.resumen)}</div>
-      ${a.hallazgos?.length ? `<div style="margin-top:6px"><b>Encontramos:</b><ul style="margin:2px 0 0;padding-left:18px">${a.hallazgos.map((h) => `<li>${esc(h)}</li>`).join('')}</ul></div>` : ''}
-      ${a.pendientes?.length ? `<div style="margin-top:6px"><b>Pendiente:</b><ul style="margin:2px 0 0;padding-left:18px">${a.pendientes.map((h) => `<li>${esc(h)}</li>`).join('')}</ul></div>` : ''}
-    </div>`).join('')}`;
-}
-
-// ---------------------------------------------------------------------------------------------
 // Textos
 
-// Incidentes que se cuentan para el cliente: los de configuración nuestra (clave de Reval) no.
-const visibles = (p) => p.incidentes.filter((i) => i.causa !== 'config');
+// Solo las fallas reales de la tienda se muestran al cliente. Los ajustes de nuestras pruebas, los
+// bloqueos anti-robots a los servidores de prueba y la falta de una clave nuestra son cosas
+// internas: no cambian el estado ni aparecen en el PDF ni en el mail.
+const delCliente = (p) => p.incidentes.filter((i) => i.causa === 'sitio');
 
 function estadoProyecto(p) {
-  const abiertos = p.incidentes.filter((i) => !i.fin && i.causa === 'sitio');
-  const delSitio = p.incidentes.filter((i) => i.causa === 'sitio');
-  if (!p.stats.rondas) return { clase: 'gris', etiqueta: 'Sin datos', resumen: 'No hubo rondas de prueba registradas en el período.' };
-  if (abiertos.length) {
-    return {
-      clase: 'rojo',
-      etiqueta: 'Requiere atención',
-      resumen: `Hay un tema abierto en ${abiertos.map((i) => i.areas.map((a) => NOMBRE_AREA[a]).join(' y ')).join('; ')} que estamos siguiendo. El detalle está más abajo.`,
-    };
+  const abiertos = delCliente(p).filter((i) => !i.fin);
+  const resueltos = delCliente(p).filter((i) => i.fin);
+  const areas = (lista) => [...new Set(lista.flatMap((i) => i.areas.map((a) => NOMBRE_AREA[a])))].join(', ');
+  if (!p.stats.rondas) {
+    return { clase: 'gris', etiqueta: 'Recién sumado', resumen: 'Este sitio se sumó al monitoreo esta semana. Desde la próxima, el informe incluye la semana completa de pruebas.' };
   }
-  if (delSitio.length) {
+  if (abiertos.length) {
+    return { clase: 'rojo', etiqueta: 'Requiere atención', resumen: `Hay un tema abierto en ${areas(abiertos)} que estamos siguiendo. El detalle está en «Novedades de la semana».` };
+  }
+  if (resueltos.length) {
     return {
       clase: 'amarillo',
-      etiqueta: 'Con novedades',
-      resumen: `La semana tuvo ${plural(delSitio.length, 'interrupción', 'interrupciones')}, ya ${delSitio.length === 1 ? 'resuelta' : 'resueltas'}. Fuera de eso, todo funcionó con normalidad.`,
+      etiqueta: 'Con observaciones',
+      resumen: `La semana tuvo ${plural(resueltos.length, 'interrupción', 'interrupciones')} en ${areas(resueltos)}, ya ${resueltos.length === 1 ? 'solucionada' : 'solucionadas'}. Fuera de eso, todo funcionó con normalidad.`,
     };
   }
-  if (visibles(p).length) {
-    const ajuste = visibles(p).some((i) => i.causa === 'ajuste');
-    return {
-      clase: 'verde',
-      etiqueta: 'Funcionando bien',
-      resumen: ajuste
-        ? 'La tienda funcionó con normalidad. Hubo un cambio en el sitio que nos llevó a actualizar una de las pruebas; no vimos impacto para los compradores.'
-        : 'La tienda funcionó con normalidad. En algún momento la protección anti-robots del sitio frenó a nuestras pruebas, algo que no afecta a los compradores.',
-    };
-  }
-  return {
-    clase: 'verde',
-    etiqueta: 'Funcionando bien',
-    resumen: `Semana sin novedades: todas las rondas de prueba pasaron sin problemas.`,
-  };
+  return { clase: 'verde', etiqueta: 'Funcionando bien', resumen: 'Semana sin novedades: todo funcionó con normalidad en todas las pruebas.' };
 }
 
 function textoIncidente(inc) {
-  if (inc.causa === 'bloqueo') {
-    return `La protección anti-robots del sitio frenó a nuestras pruebas automáticas (${inc.areas.map((a) => NOMBRE_AREA[a]).join(' y ')}), así que en ese lapso no pudimos verificar esa parte. Es una protección normal y no la ven los compradores.`;
-  }
-  if (inc.causa === 'ajuste') {
-    return `Detectamos un cambio en el sitio (diseño, filtros o ventanas emergentes) en ${inc.areas.map((a) => NOMBRE_AREA[a]).join(' y ')}. Actualizamos las pruebas para el nuevo diseño; no se trató de una falla para los compradores.`;
-  }
   const base = inc.areas.map((a) => TEXTO_AREA[a]).join(' ');
   return inc.dispositivos.length ? `${base} Se vio en: ${inc.dispositivos.join(', ')}.` : base;
 }
@@ -473,61 +480,121 @@ const ESTILOS = `
   * { box-sizing: border-box; }
   body { font-family: 'Helvetica Neue', Helvetica, Arial, 'Liberation Sans', sans-serif; color: #1d2433; font-size: 10.5pt; line-height: 1.5; margin: 0; }
   h1 { font-size: 20pt; margin: 0 0 2px; font-weight: 700; letter-spacing: -0.2px; }
-  h2 { font-size: 12pt; margin: 22px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #d9dee7; }
+  h2 { font-size: 12pt; margin: 22px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #d9dee7; page-break-after: avoid; }
   .marca { font-size: 9pt; color: #5b6475; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 14px; }
   .sub { color: #5b6475; margin: 0; }
   .estado { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 9pt; font-weight: 700; }
   .verde { background: #e3f3e8; color: #1e6b3a; } .amarillo { background: #fdf1d8; color: #8a5a00; }
   .rojo { background: #fbe3e1; color: #9b2c22; } .gris { background: #eceef2; color: #4b5363; }
-  .resumen { margin: 16px 0 6px; padding: 12px 14px; background: #f5f7fa; border-left: 3px solid #1f3a5f; }
+  .resumen { margin: 6px 0 6px; padding: 12px 14px; background: #f5f7fa; border-left: 3px solid #1f3a5f; }
+  .titulo-resumen { font-size: 9pt; text-transform: uppercase; letter-spacing: 1px; color: #1f3a5f; font-weight: 700; margin-top: 16px; }
   .cifras { display: flex; gap: 10px; margin: 14px 0 4px; }
   .cifra { flex: 1; border: 1px solid #d9dee7; border-radius: 6px; padding: 10px 12px; }
   .cifra b { display: block; font-size: 16pt; color: #1f3a5f; }
   .cifra span { font-size: 8.5pt; color: #5b6475; }
   table { width: 100%; border-collapse: collapse; }
+  tr { page-break-inside: avoid; }
   th { text-align: left; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.6px; color: #5b6475; font-weight: 600; padding: 6px 8px; border-bottom: 1px solid #d9dee7; }
   td { padding: 8px; border-bottom: 1px solid #eceef2; vertical-align: top; }
   td.area { font-weight: 600; width: 27%; }
   td.res { width: 21%; white-space: nowrap; }
+  td.num { text-align: center; width: 18%; }
   .ok { color: #1e6b3a; font-weight: 600; } .warn { color: #8a5a00; font-weight: 600; } .bad { color: #9b2c22; font-weight: 600; }
+  .nota-chica { font-size: 8.5pt; color: #5b6475; }
+  .puntaje { display: inline-block; min-width: 38px; padding: 2px 8px; border-radius: 10px; font-weight: 700; }
   .incidente { border: 1px solid #d9dee7; border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; page-break-inside: avoid; }
   .incidente .cuando { font-size: 9pt; color: #5b6475; }
   .chips span { display: inline-block; border: 1px solid #d9dee7; border-radius: 10px; padding: 1px 8px; margin: 2px 4px 2px 0; font-size: 8.5pt; }
   .nota { padding: 10px 12px; background: #fdf8ec; border: 1px solid #f1e2b8; border-radius: 6px; }
+  ul.como { margin: 0; padding-left: 18px; } ul.como li { margin-bottom: 4px; }
   .pie { margin-top: 22px; font-size: 8.5pt; color: #5b6475; }
 `;
 
+const clasePuntaje = (n) => (n >= 90 ? 'verde' : n >= 50 ? 'amarillo' : 'rojo');
+const puntaje = (n) => (typeof n === 'number' ? `<span class="puntaje ${clasePuntaje(n)}">${n}</span>` : '<span class="nota-chica">—</span>');
+const segundos = (ms) => (typeof ms === 'number' ? `${(ms / 1000).toLocaleString('es-AR', { maximumFractionDigits: 1 })} s` : '—');
+
+function htmlLighthouse(p) {
+  const lh = p.lighthouse;
+  if (!lh || (!lh.celular && !lh.escritorio)) return '';
+  const c = lh.celular || {};
+  const e = lh.escritorio || {};
+  const fila = (titulo, clave, explicacion) => `<tr><td class="area">${titulo}<div class="nota-chica" style="font-weight:400">${explicacion}</div></td><td class="num">${puntaje(c[clave])}</td><td class="num">${puntaje(e[clave])}</td></tr>`;
+  return `
+    <h2>Velocidad y calidad del sitio (Google Lighthouse)</h2>
+    <table>
+      <thead><tr><th>Indicador (de 0 a 100)</th><th style="text-align:center">Celular</th><th style="text-align:center">Escritorio</th></tr></thead>
+      <tbody>
+        ${fila('Rendimiento', 'rendimiento', 'Qué tan rápido carga la página y responde al usarla.')}
+        ${fila('Accesibilidad', 'accesibilidad', 'Qué tan fácil es de usar para todas las personas: contraste, textos para lectores de pantalla, navegación con teclado.')}
+        ${fila('Buenas prácticas', 'buenasPracticas', 'Si el sitio sigue las recomendaciones técnicas actuales de la web.')}
+        ${fila('SEO', 'seo', 'Si Google y otros buscadores pueden leer e indexar bien la página.')}
+        <tr><td class="area">Tiempo hasta ver el contenido principal<div class="nota-chica" style="font-weight:400">Cuánto tarda en aparecer lo más importante de la página (imagen o texto principal).</div></td><td class="num"><b>${segundos(c.lcpMs)}</b></td><td class="num"><b>${segundos(e.lcpMs)}</b></td></tr>
+      </tbody>
+    </table>
+    <p class="nota-chica">Medido sobre la página de inicio con Google Lighthouse, la misma herramienta de PageSpeed Insights. Es la mediana de las mediciones diarias de la semana. Verde: 90 a 100 · Amarillo: 50 a 89 · Rojo: menos de 50. En celular el puntaje siempre es más bajo, porque Google simula un teléfono de gama media con conexión móvil.</p>`;
+}
+
+function htmlSeguridad(p) {
+  const s = p.seguridad;
+  if (!s) return '';
+  const fila = (ok, titulo, texto) => `<tr><td class="area">${titulo}</td><td>${texto}</td><td class="res">${ok === null ? '<span class="nota-chica">Sin datos</span>' : ok ? '<span class="ok">Correcto</span>' : '<span class="warn">A mejorar</span>'}</td></tr>`;
+  const cert = s.certificado || {};
+  const vence = cert.vence ? new Date(cert.vence).toLocaleDateString('es-AR', { timeZone: TZ }) : null;
+  const cab = s.cabeceras || {};
+  const protecciones = [cab.hsts, cab.noSniff, cab.antiEmbebido].filter(Boolean).length;
+  const est = s.estabilidadSemana || {};
+  return `
+    <h2>Seguridad y estabilidad</h2>
+    <table><thead><tr><th>Control</th><th>Qué revisamos</th><th>Resultado</th></tr></thead><tbody>
+      ${fila(cert.valido ? (cert.dias === null || cert.dias > 14) : false, 'Certificado de seguridad', `El «candado» del navegador: la conexión está cifrada${cert.tls ? ` (${esc(cert.tls.replace('TLSv', 'TLS '))})` : ''} y el certificado es válido${vence ? ` hasta el ${esc(vence)}` : ''}.`)}
+      ${fila(s.httpsForzado, 'Conexión siempre segura', 'Quien entra por una dirección sin «s» (http) es llevado automáticamente a la segura (https).')}
+      ${fila(protecciones === 3, 'Protecciones del navegador', `El sitio le pide al navegador usar siempre conexión segura, no dejar que otras páginas lo muestren adentro y no interpretar archivos de forma insegura (${protecciones} de 3 activas).`)}
+      ${fila(!(s.archivosExpuestos || []).length, 'Archivos internos protegidos', 'No hay archivos de configuración del servidor a la vista del público.')}
+      ${fila(!s.contenidoMixto, 'Todo el contenido por conexión segura', 'Imágenes y programas de la página se cargan por conexión cifrada.')}
+      ${fila(est.visitas ? est.errores === 0 : null, 'Estabilidad del servidor', est.visitas ? `En ${est.visitas} visitas de control durante la semana, el sitio respondió en promedio en ${segundos(est.promedioMs)}${est.errores ? `, con ${est.errores} respuestas con error` : ', sin errores'}.` : 'Sin mediciones esta semana.')}
+    </tbody></table>
+    <p class="nota-chica">Son controles pasivos, como los que hace un navegador al visitar el sitio: no se realizan ataques ni pruebas de carga, para no afectar a los compradores reales.</p>`;
+}
+
+function htmlComoProbamos(p) {
+  const tienda = p.site ? p.site.ecommerce !== false : !p.interno;
+  return `
+    <h2>Cómo hacemos las pruebas</h2>
+    <ul class="como">
+      <li>Un robot recorre el sitio como lo haría un cliente: entra, navega el menú${tienda ? ', busca productos, usa los filtros, abre fichas de producto, agrega al carrito y llega hasta la página de pago' : ', abre cada sección y revisa el formulario de contacto'}. <b>Nunca completa una compra ni envía formularios.</b></li>
+      <li>El recorrido se repite varias veces por día, todos los días, en computadoras, celulares y tablets de distintos tamaños.</li>
+      <li>Si una prueba falla, se repite a los pocos minutos para descartar un corte momentáneo de internet. Si se confirma, el equipo recibe un aviso al instante.</li>
+      <li>Una vez por día medimos la velocidad con Google Lighthouse y revisamos la seguridad básica del sitio.</li>
+    </ul>`;
+}
+
 function htmlProyecto(p, rango) {
   const est = estadoProyecto(p);
-  const porArea = (clave) => visibles(p).filter((i) => i.areas.includes(clave));
-  const sinEntrar = (clave) => p.incidentes.some((i) => i.causa === 'config' && i.areas.includes(clave)) && !porArea(clave).length;
+  const porArea = (clave) => delCliente(p).filter((i) => i.areas.includes(clave));
   const filas = p.revisamos.map(([clave, titulo, texto, fijo]) => {
-    if (fijo) return `<tr><td class="area">${esc(titulo)}</td><td>${esc(texto)}</td><td class="res"><span style="color:#4b5363;font-weight:600">${esc(fijo)}</span></td></tr>`;
-    if (!p.stats.rondas) return `<tr><td class="area">${esc(titulo)}</td><td>${esc(texto)}</td><td class="res"><span style="color:#4b5363">Sin datos todavía</span></td></tr>`;
-    if (sinEntrar(clave)) return `<tr><td class="area">${esc(titulo)}</td><td>${esc(texto)}</td><td class="res"><span style="color:#4b5363">Sin datos esta semana</span></td></tr>`;
-    const incs = porArea(clave);
-    const delSitio = incs.filter((i) => i.causa === 'sitio');
     let res = '<span class="ok">Sin problemas</span>';
-    if (delSitio.some((i) => !i.fin)) res = '<span class="bad">En revisión</span>';
-    else if (delSitio.length) res = `<span class="warn">${plural(delSitio.length, 'interrupción', 'interrupciones')}, resuelta${delSitio.length === 1 ? '' : 's'}</span>`;
-    else if (incs.length) {
-      const nota = incs.some((i) => i.causa === 'ajuste') ? 'prueba actualizada' : 'unas horas sin verificar';
-      res = `<span class="ok">Sin problemas</span><br><span style="font-size:8.5pt;color:#5b6475">${nota}</span>`;
+    if (fijo) res = `<span style="color:#4b5363;font-weight:600">${esc(fijo)}</span>`;
+    else if (!p.stats.rondas) res = '<span style="color:#4b5363">Desde la próxima semana</span>';
+    else {
+      const incs = porArea(clave);
+      if (incs.some((i) => !i.fin)) res = '<span class="bad">En revisión</span>';
+      else if (incs.length) res = `<span class="warn">${plural(incs.length, 'interrupción', 'interrupciones')}, ${incs.length === 1 ? 'solucionada' : 'solucionadas'}</span>`;
     }
     return `<tr><td class="area">${esc(titulo)}</td><td>${esc(texto)}</td><td class="res">${res}</td></tr>`;
   }).join('');
 
-  const incidentes = visibles(p).length
-    ? visibles(p).map((i) => `
+  const incidentes = delCliente(p).length
+    ? delCliente(p).map((i) => `
       <div class="incidente">
-        <div><b>${esc({ ajuste: 'Actualización de pruebas', bloqueo: 'Pruebas frenadas por la protección anti-robots' }[i.causa] || i.areas.map((a) => NOMBRE_AREA[a][0].toUpperCase() + NOMBRE_AREA[a].slice(1)).join(' y '))}</b></div>
-        <div class="cuando">Detectado: ${esc(fechaHora(i.inicio))} · ${i.fin ? `${{ ajuste: 'Prueba actualizada', bloqueo: 'Pruebas normalizadas' }[i.causa] || 'Funcionando de nuevo'}: ${esc(fechaHora(i.fin))}` : '<span class="bad">Sigue abierto al cierre del informe</span>'}</div>
+        <div><b>${esc(i.areas.map((a) => NOMBRE_AREA[a][0].toUpperCase() + NOMBRE_AREA[a].slice(1)).join(' y '))}</b></div>
+        <div class="cuando">Detectado: ${esc(fechaHora(i.inicio))} · ${i.fin ? `Solucionado: ${esc(fechaHora(i.fin))}` : '<span class="bad">Sigue abierto al cierre del informe</span>'}</div>
         <div style="margin-top:4px">${esc(textoIncidente(i))}</div>
       </div>`).join('')
     : '<p>No hubo incidentes en la semana.</p>';
 
   const pantallas = pantallasProbadas(p);
-  const pctOk = p.stats.rondas ? Math.round((1 - p.incidentes.filter((i) => i.causa === 'sitio').reduce((n, i) => n + i.corridas.length, 0) / p.stats.rondas) * 1000) / 10 : null;
+  const pctOk = p.stats.rondas ? Math.round((1 - delCliente(p).reduce((n, i) => n + i.corridas.length, 0) / p.stats.rondas) * 1000) / 10 : null;
 
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe semanal · ${esc(p.nombre)}</title><style>${ESTILOS}</style></head><body>
     <div class="marca">Latech Factory · Monitoreo de calidad</div>
@@ -535,57 +602,72 @@ function htmlProyecto(p, rango) {
     <p class="sub">${esc(p.url)}</p>
     <p class="sub">Informe semanal del ${esc(diaMes(rango.desde))} al ${esc(diaMes(rango.hasta))} · <span class="estado ${est.clase}">${esc(est.etiqueta)}</span></p>
 
-    <div class="resumen">${esc(est.resumen)}${p.actividades?.length ? ` Además, esta semana hicimos ${plural(p.actividades.length, 'revisión manual', 'revisiones manuales')}; el detalle está al final.` : ''}</div>
+    <div class="titulo-resumen">Resumen</div>
+    <div class="resumen">${esc(resumenEjecutivo(p).texto)}</div>
 
     <div class="cifras">
       <div class="cifra"><b>${p.stats.rondas.toLocaleString('es-AR')}</b><span>rondas de prueba en la semana</span></div>
       <div class="cifra"><b>${p.stats.pruebas.toLocaleString('es-AR')}</b><span>pruebas individuales realizadas</span></div>
-      <div class="cifra"><b>${pctOk === null ? '—' : `${pctOk.toLocaleString('es-AR')}%`}</b><span>de las rondas sin fallas en la tienda</span></div>
+      <div class="cifra"><b>${pctOk === null ? '—' : `${pctOk.toLocaleString('es-AR')}%`}</b><span>de las rondas sin fallas</span></div>
       ${pantallas.length ? `<div class="cifra"><b>${pantallas.length}</b><span>tamaños de pantalla y dispositivos</span></div>` : ''}
     </div>
+
+    ${htmlComoProbamos(p)}
 
     <h2>Qué revisamos y cómo salió</h2>
     <table><thead><tr><th>Área</th><th>Qué verificamos</th><th>Resultado</th></tr></thead><tbody>${filas}</tbody></table>
 
     ${pantallas.length ? `<h2>Pantallas y dispositivos</h2><div class="chips">${pantallas.map((x) => `<span>${esc(x)}</span>`).join('')}</div>` : ''}
 
+    ${htmlLighthouse(p)}
+
+    ${htmlSeguridad(p)}
+
     <h2>Novedades de la semana</h2>
     ${incidentes}
 
-    ${htmlActividades(p.actividades)}
-
     ${p.nota ? `<h2>Para tener en cuenta</h2><div class="nota">${esc(p.nota)}</div>` : ''}
 
-    <div class="pie">
-      Las pruebas se hacen solas, varias veces por día, como si fueran un cliente real navegando el sitio desde distintos dispositivos.
-      Nunca se completan compras ni se envían formularios. Cuando una prueba falla, se repite a los pocos minutos antes de considerarla un problema,
-      para descartar cortes momentáneos de internet; si se confirma, el equipo recibe un aviso en el momento.<br><br>${esc(FIRMA)}
-    </div>
+    <div class="pie">${esc(FIRMA)}</div>
   </body></html>`;
 }
 
-// Resumen ejecutivo de un proyecto para el cuerpo del mail: estado, qué pasó en la tienda y el
-// QA manual de la semana, en dos o tres oraciones. El detalle queda en el PDF adjunto.
+// Resumen corto de cada proyecto (arriba del PDF y en el mail): lo que pasó en la tienda, en
+// positivo y sin nada de cómo funcionan las pruebas por dentro.
 function resumenEjecutivo(p) {
   const est = estadoProyecto(p);
   const frases = [];
-  const delSitio = p.incidentes.filter((i) => i.causa === 'sitio');
+  const sitio = p.site?.ecommerce === false || !p.site ? 'el sitio' : 'la tienda';
   if (!p.stats.rondas) {
-    frases.push(p.interno ? 'Todavía no hay rondas de prueba registradas.' : 'Se sumó al monitoreo esta semana; el primer informe completo llega la semana que viene.');
-  } else if (!delSitio.length) {
-    frases.push(`Las pruebas automáticas pasaron toda la semana: ${p.stats.pruebas.toLocaleString('es-AR')} pruebas sin fallas ${p.site?.ecommerce === false ? 'del sitio' : 'de la tienda'}.`);
+    frases.push(est.resumen);
   } else {
-    for (const i of delSitio) {
-      const que = i.areas.map((a) => NOMBRE_AREA[a]).join(' y ');
-      frases.push(i.fin
-        ? `Hubo una interrupción en ${que} (${fechaHora(i.inicio)}), ya resuelta.`
-        : `Hay un tema abierto en ${que} desde el ${fechaHora(i.inicio)}.`);
-    }
+    const abiertos = delCliente(p).filter((i) => !i.fin);
+    const resueltos = delCliente(p).filter((i) => i.fin);
+    frases.push(
+      abiertos.length || resueltos.length
+        ? `Esta semana hicimos ${p.stats.pruebas.toLocaleString('es-AR')} pruebas automáticas sobre ${sitio}.`
+        : `Pasaron sin fallas las ${p.stats.pruebas.toLocaleString('es-AR')} pruebas automáticas de la semana.`
+    );
+    const pantallas = pantallasProbadas(p).length;
+    if (pantallas > 3) frases.push(`Se probó en computadoras, celulares y tablets (${pantallas} tamaños de pantalla).`);
+    else if (pantallas > 1) frases.push('Se probó en computadora, celular y tablet.');
+    for (const i of resueltos) frases.push(`Observación: el ${diaMes(i.inicio)} hubo una interrupción en ${i.areas.map((a) => NOMBRE_AREA[a]).join(' y ')}, ya solucionada.`);
+    for (const i of abiertos) frases.push(`Atención: desde el ${diaMes(i.inicio)} hay un tema abierto en ${i.areas.map((a) => NOMBRE_AREA[a]).join(' y ')} que estamos siguiendo.`);
   }
-  for (const a of p.actividades || []) {
-    frases.push(`QA manual: ${a.titulo.replace(/\s*\([^)]*\)\s*$/, '')} — ${a.resultado.toLowerCase()}${a.hallazgos?.length ? `, ${plural(a.hallazgos.length, 'hallazgo', 'hallazgos')}` : ''}.`);
+  const lh = p.lighthouse;
+  if (lh?.escritorio?.rendimiento != null || lh?.celular?.rendimiento != null) {
+    const partes = [];
+    if (lh.escritorio?.rendimiento != null) partes.push(`${lh.escritorio.rendimiento} en escritorio`);
+    if (lh.celular?.rendimiento != null) partes.push(`${lh.celular.rendimiento} en celular`);
+    frases.push(`Velocidad según Google: ${partes.join(' y ')}${lh.celular?.seo != null ? `; SEO ${lh.celular.seo}/100` : ''}.`);
   }
-  if (p.nota) frases.push('Tiene un punto pendiente para tener en cuenta (detalle en el PDF).');
+  const s = p.seguridad;
+  if (s?.certificado) {
+    const cab = s.cabeceras || {};
+    const controles = [s.certificado.valido, s.httpsForzado, cab.hsts && cab.noSniff && cab.antiEmbebido, !(s.archivosExpuestos || []).length, !s.contenidoMixto];
+    const ok = controles.filter(Boolean).length;
+    frases.push(`Seguridad: ${ok} de ${controles.length} controles correctos${s.certificado.valido ? ' y certificado vigente' : ''}.`);
+  }
   return { est, texto: frases.join(' ') };
 }
 
@@ -594,14 +676,14 @@ function htmlInterno(lista, rango, pdfs) {
   const filas = lista
     .map((p) => ({ p, ...resumenEjecutivo(p) }))
     .sort((a, b) => orden[a.est.clase] - orden[b.est.clase]);
-  const atencion = filas.filter((f) => f.est.clase === 'rojo' || f.est.clase === 'amarillo');
-  const intro = atencion.length
-    ? `${plural(filas.length - atencion.length, 'proyecto funcionó', 'proyectos funcionaron')} bien toda la semana. ${atencion.length === 1 ? 'Uno tiene novedades' : `${atencion.length} tienen novedades`}: ${atencion.map((f) => f.p.nombre).join(', ')}.`
-    : `Los ${filas.length} proyectos funcionaron bien toda la semana.`;
+  const conNovedades = filas.filter((f) => f.est.clase === 'rojo' || f.est.clase === 'amarillo');
+  const intro = conNovedades.length
+    ? `${plural(filas.length - conNovedades.length, 'proyecto funcionó', 'proyectos funcionaron')} bien toda la semana y ${conNovedades.length === 1 ? 'uno tiene observaciones' : `${conNovedades.length} tienen observaciones`}: ${conNovedades.map((f) => f.p.nombre).join(', ')}.`
+    : 'Todos los proyectos funcionaron bien toda la semana.';
 
   const bloques = filas.map(({ p, est, texto }) => `
     <tr>
-      <td style="padding:10px 12px 10px 0;border-bottom:1px solid #eceef2;vertical-align:top;width:34%">
+      <td style="padding:10px 12px 10px 0;border-bottom:1px solid #eceef2;vertical-align:top;width:30%">
         <b>${esc(p.nombre)}</b><br><span class="estado ${est.clase}" style="margin-top:4px">${esc(est.etiqueta)}</span>
       </td>
       <td style="padding:10px 0;border-bottom:1px solid #eceef2;vertical-align:top;color:#33394a">${esc(texto)}</td>
@@ -609,9 +691,15 @@ function htmlInterno(lista, rango, pdfs) {
 
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><style>${ESTILOS} body{font-size:10.5pt;max-width:720px}</style></head><body>
     <p>Hola,</p>
-    <p>Este es el resumen de calidad de la semana del ${esc(diaMes(rango.desde))} al ${esc(diaMes(rango.hasta))}. ${esc(intro)}</p>
+    <p>Este es el resumen de QA de todos los proyectos retainer de la semana del ${esc(diaMes(rango.desde))} al ${esc(diaMes(rango.hasta))}. ${esc(intro)}</p>
     <p>Abajo va lo principal de cada proyecto. El informe completo de cada uno va adjunto en PDF (${pdfs.length} en total), listo para reenviar al cliente.</p>
-    <table style="border-collapse:collapse;width:100%;font-size:10pt;margin-top:8px">${bloques}</table>
+    <table style="border-collapse:collapse;width:100%;font-size:10pt;margin-top:8px">
+      <thead><tr>
+        <th style="text-align:left;padding:6px 12px 6px 0">Proyecto</th>
+        <th style="text-align:left;padding:6px 0">Resumen</th>
+      </tr></thead>
+      <tbody>${bloques}</tbody>
+    </table>
     <p style="margin-top:18px">Saludos,<br>${esc(FIRMA)}</p>
   </body></html>`;
 }
@@ -635,8 +723,11 @@ async function main() {
   }
 
   const rondas = await recolectar(lista, rango);
-  const enPeriodo = actividadesDelPeriodo(rango);
-  for (const p of lista) p.actividades = enPeriodo.filter((a) => a.proyectos.includes(p.id));
+  const calidad = await recolectarCalidad(rango);
+  for (const p of lista) {
+    p.lighthouse = calidad.lighthouse[p.id] || null;
+    p.seguridad = calidad.seguridad[p.id] || null;
+  }
   fs.mkdirSync(SALIDA, { recursive: true });
 
   const { chromium } = require('@playwright/test');
