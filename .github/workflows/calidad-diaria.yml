@@ -35,7 +35,7 @@ jobs:
           npm install --no-save lighthouse@13.5.0
 
       - name: Install Chromium
-        run: timeout 420 npx playwright install --with-deps chromium || (sleep 30 && timeout 420 npx playwright install --with-deps chromium)
+        run: bash .github/scripts/instalar-chromium.sh
 
       - name: Seguridad y estabilidad
         run: node .github/scripts/seguridad.js

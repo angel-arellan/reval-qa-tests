@@ -68,7 +68,7 @@ jobs:
       # Chromium se usa solo para convertir los informes a PDF.
       - name: Install Chromium
         if: steps.ya.outputs.enviado != 'si'
-        run: timeout 420 npx playwright install --with-deps chromium || (sleep 30 && timeout 420 npx playwright install --with-deps chromium)
+        run: bash .github/scripts/instalar-chromium.sh
 
       - name: Armar y enviar informe
         if: steps.ya.outputs.enviado != 'si'
