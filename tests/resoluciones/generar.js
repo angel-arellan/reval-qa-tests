@@ -2,6 +2,7 @@
 //
 //   node tests/resoluciones/generar.js        → escribe tests/generados/*.spec.js
 //   RESOLUCIONES_LOTE=2 node tests/resoluciones/generar.js → solo las resoluciones del lote 2
+//   RESOLUCION=MIPHONE15 node tests/resoluciones/generar.js → solo esa resolución
 //   npx playwright test tests/generados --grep "SWISSGEAR_COM-"
 //
 // Por cada resolución de tests/config/resoluciones.js crea una copia de
@@ -75,6 +76,29 @@ const BLOQUEO_ANALITICA = `
 test.beforeEach(async ({ page }, testInfo) => {
   testInfo.setTimeout(Math.max(testInfo.timeout, 120000));
   await page.route(${ANALITICA.toString()}, (route) => route.abort());
+});
+
+// Agregado por generar.js: si la tienda responde con la verificación anti-robots de Shopify
+// ("Just a moment..."), primero se espera a que se resuelva sola; si no, se deja descansar la
+// conexión un minuto y se vuelve a cargar la página una vez por test. Antes el test fallaba en
+// el acto y los reintentos inmediatos sumaban visitas y agrandaban el bloqueo (nov-2026). Si
+// sigue bloqueado, el test falla como "Bloqueo en ..." igual que antes.
+test.beforeEach(async ({ page }, testInfo) => {
+  const irOriginal = page.goto.bind(page);
+  const desafio = async () => /Just a moment/i.test(await page.title().catch(() => ''));
+  let descansoUsado = false;
+  page.goto = async (url, opciones) => {
+    const respuesta = await irOriginal(url, opciones);
+    if (!(await desafio())) return respuesta;
+    await page.waitForFunction(() => !/Just a moment/i.test(document.title), null, { timeout: 20000 }).catch(() => {});
+    await page.waitForLoadState('domcontentloaded', { timeout: 15000 }).catch(() => {});
+    if (!(await desafio()) || descansoUsado) return respuesta;
+    descansoUsado = true;
+    testInfo.setTimeout(testInfo.timeout + 120000);
+    console.log(\`Verificación anti-robots en \${url}: espero 60 s y reintento una vez\`);
+    await page.waitForTimeout(60000);
+    return irOriginal(url, opciones);
+  };
 });
 `;
 
@@ -219,8 +243,13 @@ function main() {
   fs.mkdirSync(SALIDA, { recursive: true });
   const generados = [];
   const lote = process.env.RESOLUCIONES_LOTE;
-  const elegidas = lote === undefined || lote === '' ? resoluciones : resoluciones.filter((r) => String(r.lote) === String(lote));
-  if (!elegidas.length) throw new Error(`generar.js: el lote ${lote} no tiene resoluciones (ver tests/config/resoluciones.js)`);
+  // RESOLUCION=<id> genera una sola resolución: el workflow corre un job por resolución, cada
+  // uno en otro servidor de GitHub (otra IP), para repartir las visitas a cada tienda.
+  const una = process.env.RESOLUCION;
+  const elegidas = una
+    ? resoluciones.filter((r) => r.id === una)
+    : lote === undefined || lote === '' ? resoluciones : resoluciones.filter((r) => String(r.lote) === String(lote));
+  if (!elegidas.length) throw new Error(`generar.js: ${una ? `la resolución ${una} no existe` : `el lote ${lote} no tiene resoluciones`} (ver tests/config/resoluciones.js)`);
   for (const res of elegidas) {
     if (res.twp?.length) {
       const destino = path.join(SALIDA, `twp-${res.id}.spec.js`);

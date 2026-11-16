@@ -342,7 +342,8 @@ async function recolectar(lista, rango) {
     }));
     for (const { run, jobs } of conJobs) {
       for (const job of jobs) {
-        const clave = `${wf}::${job.name}`;
+        // Multi-resolución: un job por tienda y resolución ("Resoluciones - <tienda> · <pantalla>").
+        const clave = `${wf}::${wf === 'playwright-resoluciones.yml' ? job.name.replace(/ · .*$/, '') : job.name}`;
         if (!porJob.has(clave)) porJob.set(clave, []);
         porJob.get(clave).push({ run, job, fecha: new Date(run.created_at), sha: run.head_sha, estado: clasificarJob(job) });
       }
@@ -357,6 +358,20 @@ async function recolectar(lista, rango) {
     if (/Sin tests fallidos en el reporte/.test(log)) e.estado = 'infra';
     e.tests = fallasDelLog(log);
   });
+
+  // Si una corrida tiene varios jobs de la misma tienda (uno por resolución), cuentan como una
+  // sola ronda: la peor de las resoluciones, con las fallas de todas.
+  const PESO = { falla: 4, recuperada: 3, ok: 2, infra: 1, omitida: 0 };
+  for (const [clave, serie] of porJob) {
+    const porRun = new Map();
+    for (const e of serie) {
+      const previo = porRun.get(e.run.id);
+      if (!previo) { porRun.set(e.run.id, { ...e }); continue; }
+      if (PESO[e.estado] > PESO[previo.estado]) Object.assign(previo, { estado: e.estado, job: e.job });
+      if (e.tests) previo.tests = [...(previo.tests || []), ...e.tests];
+    }
+    porJob.set(clave, [...porRun.values()]);
+  }
 
   const compararCache = new Map();
   const commitsEntre = async (base, head) => {
