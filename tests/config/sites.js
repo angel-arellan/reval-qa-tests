@@ -311,7 +311,11 @@ module.exports = [
       variantInputSelector: 'label.thumbnail-swatch',
       variantIsLabel: true,
       quantitySelector: null,
-      addToCartSelector: 'buy-buttons button[type="submit"]',
+      // Desde el 17-nov la PDP tiene el buybox de suscripciones de Reval, marcado por defecto en
+      // "Suscribirme" (ese botón manda al carrito de suscripciones, no al de Shopify). Se elige
+      // "Compra única" y se usa el botón normal del tema ("Añadir al carrito").
+      purchaseModeSelector: 'label[data-mp-mode="onetime"]',
+      addToCartSelector: 'buy-buttons button[type="submit"]:not(.is-subscribe)',
     },
     cart: {
       type: 'page',
