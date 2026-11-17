@@ -2,7 +2,7 @@ name: Playwright Daily E2E Regression - Reval (Cada 1 hora)
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '43 * * * *' # a los :43: GitHub descarta muchas corridas programadas en punto (:00)
   workflow_dispatch:
 
 jobs:

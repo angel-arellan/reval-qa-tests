@@ -2,7 +2,7 @@ name: Playwright Multisite Storefront Tests (Cada 1 hora)
 
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '17 * * * *' # a los :17: GitHub descarta muchas corridas programadas en punto (:00)
   workflow_dispatch:
 
 jobs:
