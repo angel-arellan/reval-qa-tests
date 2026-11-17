@@ -7,20 +7,23 @@ name: Informe semanal de QA por mail (lunes)
 # Secrets: MAIL_USERNAME (cuenta de Gmail que envía), MAIL_PASSWORD (contraseña de aplicación
 # de esa cuenta, no la contraseña normal) y REPORTE_DESTINATARIOS (mails separados por coma).
 #
-# GitHub larga las corridas programadas con horas de demora o directamente no las larga (el
-# 09-nov el de las 08:30 salió 18:36; el 16-nov no salió ninguno de los tres en todo el día).
-# Por eso hay un horario por hora el lunes desde las 08:30 y unos más el martes: el primero que
-# corre manda el informe y los siguientes ven que ya salió esta semana y terminan en segundos.
-# Un envío manual sin opciones también cuenta como el informe de la semana; las pruebas no.
+# Se manda los lunes a las 08:30 (Argentina), una sola vez. GitHub larga los horarios
+# programados con demoras de hasta 10 h o no los larga (el 09-nov el de las 08:30 salió 18:36
+# y el 16-nov salió 18:12 y otra vez 21:22), así que hay varios horarios desde la madrugada:
+# el primero que corre espera hasta las 08:27 y lo manda (ver .github/scripts/informe-semanal-control.js);
+# los demás quedan en cola y ven que ya salió. Si GitHub no larga ninguno antes, los horarios de
+# respaldo lo mandan apenas puedan, también una sola vez. Un envío manual sin opciones cuenta
+# como el informe de la semana; las pruebas no.
 # Los PDF NO se suben como artifact: el repo es público y son informes de clientes.
 
 run-name: ${{ (inputs.prueba || inputs.enviar_a || inputs.ultimos_dias) && 'Informe semanal (prueba)' || 'Informe semanal' }}
 
 on:
   schedule:
-    - cron: '30 11 * * 1' # lunes 08:30 (Argentina)
-    - cron: '47 12-23 * * 1' # lunes 09:47 a 20:47, por si GitHub no disparó el anterior
-    - cron: '47 0-14/2 * * 2' # lunes 21:47 a martes 11:47, último recurso
+    - cron: '57 5-10 * * 1' # lunes 02:57 a 07:57 (Argentina): espera y lo manda 08:30
+    - cron: '30 11 * * 1' # lunes 08:30
+    - cron: '47 12-23 * * 1' # respaldo: lunes 09:47 a 20:47
+    - cron: '47 0-14/2 * * 2' # respaldo: lunes 21:47 a martes 11:47
   workflow_dispatch:
     inputs:
       prueba:
@@ -46,23 +49,17 @@ jobs:
   informe:
     name: Armar y enviar informe semanal
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Hasta 6 h: la corrida de la madrugada espera hasta las 08:27 antes de armar el informe.
+    timeout-minutes: 360
     steps:
-      - name: ¿Ya se mandó esta semana?
+      - uses: actions/checkout@v4
+
+      - name: ¿Ya se mandó esta semana? (si es temprano, espera hasta las 08:30)
         id: ya
         if: github.event_name == 'schedule'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          # Lunes 00:00 de esta semana en Argentina (UTC-3, sin horario de verano), en UTC.
-          LUNES=$(date -u -d "$(TZ=America/Argentina/Buenos_Aires date -d "$(( $(TZ=America/Argentina/Buenos_Aires date +%u) - 1 )) days ago" +%Y-%m-%d) 03:00" +%Y-%m-%dT%H:%M:%SZ)
-          N=$(gh api "repos/${{ github.repository }}/actions/workflows/reporte-semanal.yml/runs?status=success&per_page=50" \
-            --jq "[.workflow_runs[] | select(.id != ${{ github.run_id }} and .created_at >= \"$LUNES\" and .display_title == \"Informe semanal\")] | length")
-          echo "Informes enviados desde el lunes ($LUNES): $N"
-          if [ "$N" -gt 0 ]; then echo "enviado=si" >> "$GITHUB_OUTPUT"; fi
-
-      - uses: actions/checkout@v4
-        if: steps.ya.outputs.enviado != 'si'
+        run: node .github/scripts/informe-semanal-control.js
 
       - uses: actions/setup-node@v4
         if: steps.ya.outputs.enviado != 'si'
