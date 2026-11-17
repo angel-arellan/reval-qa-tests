@@ -13,6 +13,12 @@ name: Playwright Multi-resolución - Escritorio, Celulares y Tablets (Cada 4 hor
 # Minuto 23 a propósito: los horarios en punto (:00) son los de más carga en GitHub y muchas
 # corridas programadas se pierden. Solo lectura y carrito: nunca compra ni envía formularios, y
 # no manda hits de analítica a las tiendas (los bloquea generar.js).
+#
+# Un job por tienda y resolución (nov-2026): con un solo job por tienda, las 3 resoluciones del
+# lote salían desde el mismo servidor de GitHub y, a mitad de la tanda, Shopify empezaba a pedir
+# verificación anti-robots ("Just a moment...") y a frenar el "agregar al carrito" (HTTP 429):
+# pasaban las de escritorio y caían las de celular y tablet, que corrían después. Separadas,
+# cada IP hace un tercio de las visitas, como la suite horaria, que no se bloquea.
 
 on:
   schedule:
@@ -20,7 +26,7 @@ on:
   workflow_dispatch:
     inputs:
       lote:
-        description: 'Lote de resoluciones (0 a 3, ver tests/config/resoluciones.js). Vacío = el que toca por horario'
+        description: 'Lote de resoluciones (0 a 3, ver tests/config/resoluciones.js). Vacío = el que toca (rota en cada corrida)'
         required: false
 
 concurrency:
@@ -40,25 +46,42 @@ jobs:
         with:
           node-version: 20
 
-      - name: Generar matrix desde tests/config/sites.js (+ The Wellness Project)
+      # Un lote por corrida (ver tests/config/resoluciones.js), rotando por número de corrida.
+      # Antes rotaba por la hora de arranque, pero GitHub larga las corridas programadas con
+      # horas de demora y el lote 2 no salía nunca. Así cada corrida toma el lote siguiente.
+      - name: Generar matrix (tiendas × resoluciones del lote)
         id: set-matrix
+        env:
+          LOTE_MANUAL: ${{ inputs.lote }}
+          CORRIDA: ${{ github.run_number }}
         run: |
-          SITES=$(node -e "
+          node -e "
+            const { resoluciones } = require('./tests/config/resoluciones.js');
+            const lotes = [...new Set(resoluciones.map((r) => r.lote))].sort();
+            const lote = process.env.LOTE_MANUAL !== '' && process.env.LOTE_MANUAL !== undefined
+              ? Number(process.env.LOTE_MANUAL) : lotes[Number(process.env.CORRIDA) % lotes.length];
+            const elegidas = resoluciones.filter((r) => r.lote === lote);
+            if (!elegidas.length) throw new Error('El lote ' + lote + ' no tiene resoluciones (ver tests/config/resoluciones.js)');
+            console.log('Lote de resoluciones: ' + lote + ' → ' + elegidas.map((r) => r.nombre).join(', '));
             const s = require('./tests/config/sites.js').map(({ id, name, baseUrl }) => ({ id, name, baseUrl }));
             s.push({ id: 'TWP', name: 'The Wellness Project', baseUrl: 'https://www.thewellnessproject.com.ar' });
-            console.log(JSON.stringify(s));
-          ")
-          echo "matrix={\"include\":$SITES}" >> "$GITHUB_OUTPUT"
+            const include = s.flatMap((x) => elegidas.map((r) => ({ ...x, res: r.id, pantalla: r.nombre, grupo: r.grupo })));
+            require('fs').appendFileSync(process.env.GITHUB_OUTPUT, 'matrix=' + JSON.stringify({ include }) + '\\n');
+          "
 
   resoluciones:
-    name: Resoluciones - ${{ matrix.name }}
+    # El informe semanal (.github/scripts/reporte-semanal.js) agrupa por "Resoluciones - <tienda>"
+    # lo que va antes de " · ": no cambiar ese formato sin ajustar el informe.
+    name: Resoluciones - ${{ matrix.name }} · ${{ matrix.pantalla }}
     needs: discover-sites
-    timeout-minutes: 90
+    timeout-minutes: 60
     runs-on: ubuntu-latest
     env:
       PLAYWRIGHT_JSON_OUTPUT_NAME: resultados.json
     strategy:
       fail-fast: false
+      # Deja lugar a las suites horarias (GitHub corre hasta 20 jobs a la vez en el plan gratis).
+      max-parallel: 12
       matrix: ${{ fromJson(needs.discover-sites.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
@@ -76,45 +99,48 @@ jobs:
       - name: Install Playwright Browsers
         run: bash .github/scripts/instalar-chromium.sh
 
-      # Un lote por corrida (3 resoluciones), rotando según la hora: 00 y 16 UTC → lote 0,
-      # 04 y 20 → 1, 08 → 2, 12 → 3... En un día pasan todas las resoluciones.
-      - name: Generar suite multi-resolución
+      - name: Generar suite (${{ matrix.pantalla }})
         env:
-          LOTE_MANUAL: ${{ inputs.lote }}
-        run: |
-          export RESOLUCIONES_LOTE="${LOTE_MANUAL:-$(( (10#$(date -u +%H) / 4) % 4 ))}"
-          echo "Lote de resoluciones: $RESOLUCIONES_LOTE"
-          node tests/resoluciones/generar.js
+          RESOLUCION: ${{ matrix.res }}
+        run: node tests/resoluciones/generar.js
 
-      - name: Run Resoluciones - ${{ matrix.name }}
+      # La web de Latech (web-latech.spec.js) tiene sus propios tamaños: corre una sola vez por
+      # corrida, en el job de escritorio. Un reintento por test (no dos): si una tienda frena a
+      # los servidores de prueba, reintentar en el acto suma visitas y agranda el bloqueo.
+      - name: Run Resoluciones - ${{ matrix.name }} · ${{ matrix.pantalla }}
         id: tests
         continue-on-error: true
-        run: npx playwright test tests/generados tests/web-latech.spec.js --grep "${{ matrix.id }}-" --workers=1 --reporter=html,json
+        run: |
+          ARCHIVOS="tests/generados"
+          if [ "${{ matrix.grupo }}" = "escritorio" ]; then ARCHIVOS="$ARCHIVOS tests/web-latech.spec.js"; fi
+          npx playwright test $ARCHIVOS --grep "${{ matrix.id }}-" --workers=1 --retries=1 --reporter=html,json
 
       # Anti falsas alarmas, igual que en las demás suites: se re-ejecuta solo lo que falló unos
       # minutos después y únicamente si vuelve a fallar se avisa a Slack.
-      - name: Confirmar fallas - ${{ matrix.name }}
+      - name: Confirmar fallas - ${{ matrix.name }} · ${{ matrix.pantalla }}
         id: confirm
         if: steps.tests.outcome == 'failure'
         run: |
           sleep 180
-          npx playwright test tests/generados tests/web-latech.spec.js --grep "${{ matrix.id }}-" --workers=1 --reporter=html,json --last-failed
+          ARCHIVOS="tests/generados"
+          if [ "${{ matrix.grupo }}" = "escritorio" ]; then ARCHIVOS="$ARCHIVOS tests/web-latech.spec.js"; fi
+          npx playwright test $ARCHIVOS --grep "${{ matrix.id }}-" --workers=1 --retries=1 --reporter=html,json --last-failed
 
-      - name: Upload HTML Report - ${{ matrix.name }}
+      - name: Upload HTML Report - ${{ matrix.name }} · ${{ matrix.pantalla }}
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-resoluciones-${{ matrix.id }}
+          name: playwright-report-resoluciones-${{ matrix.id }}-${{ matrix.res }}
           path: playwright-report/
           retention-days: 14
 
       # El paso corre siempre que haya una falla confirmada (el informe semanal lee de su log qué
       # test falló), pero solo publica en Slack si la variable del repo RESOLUCIONES_SLACK = si.
       # Arranca apagado mientras se calibran las resoluciones nuevas, para no llenar Slack.
-      - name: Notify Slack (Management) on Failure - ${{ matrix.name }}
+      - name: Notify Slack (Management) on Failure - ${{ matrix.name }} · ${{ matrix.pantalla }}
         if: failure() && steps.confirm.outcome == 'failure'
         continue-on-error: true
         env:
           SLACK_WEBHOOK: ${{ vars.RESOLUCIONES_SLACK == 'si' && secrets.SLACK_WEBHOOK_MULTISITE_MANAGEMENT || '' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: node .github/scripts/alerta-slack.js "ALERTA MULTI-RESOLUCIÓN" "${{ matrix.name }}" "${{ matrix.baseUrl }}"
+        run: node .github/scripts/alerta-slack.js "ALERTA MULTI-RESOLUCIÓN" "${{ matrix.name }} · ${{ matrix.pantalla }}" "${{ matrix.baseUrl }}"

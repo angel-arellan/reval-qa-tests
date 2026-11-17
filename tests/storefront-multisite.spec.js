@@ -537,6 +537,16 @@ async function agregarProductoAlCarrito(page, site, BASE_URL) {
 
   await seleccionarVariante(page, site.pdp);
 
+  // PDP con bloque de suscripción que viene marcado en "Suscribirme" (ej. Ena Sport con el
+  // buybox de Reval desde el 17-nov-2026): con la suscripción elegida, el botón manda al carrito
+  // de suscripciones de la app y el carrito de Shopify queda vacío. Se elige "Compra única".
+  if (site.pdp.purchaseModeSelector) {
+    const modo = page.locator(site.pdp.purchaseModeSelector).first();
+    await expect(modo, `No se encontró la opción "Compra única" en la PDP de ${site.name}`).toBeVisible({ timeout: 15000 });
+    await modo.click();
+    await page.waitForTimeout(1000);
+  }
+
   if (site.pdp.quantitySelector) {
     const qtyBtn = page.locator(site.pdp.quantitySelector).first();
     if (await qtyBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
