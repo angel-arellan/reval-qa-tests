@@ -638,7 +638,10 @@ module.exports = [
       path: '/collections/all',
       filters: {
         enabled: true,
-        labelSelector: 'a.collection-filters__filter-link[data-value="Doypack (Té en hebras)"]',
+        // Primer valor del filtro "Presentación" (por el metafield, no por el texto): el 18-nov la
+        // tienda renombró "Doypack (Té en hebras)" a "Doypack" y el selector por texto dejó de
+        // encontrarlo.
+        labelSelector: 'a.collection-filters__filter-link[data-name="filter.p.m.custom.presentaci_n"]',
       },
     },
     pdp: {
